@@ -75,6 +75,7 @@ The file uses Ads Manager's import column names (`Campaign Objective`, `Ad Set R
 npm install        # dev tools: jsdom, jszip, mammoth, the Anthropic SDK, esbuild
 npm test           # node:test suite in tests/
 npm run build      # writes dist/meta-builder.html
+npm run build:artifact  # writes dist/meta-builder-artifact.html, the page published as a Claude artifact
 npm run vendor     # refreshes app/vendor/ after a dependency upgrade
 ```
 

@@ -886,9 +886,9 @@
       toast(e.message || 'Could not read that file.', true);
     }
   }
-  function loadSample() {
+  function loadSample(opts) {
     const s = window.MBSample;
-    loadSource({ name: s.name, kind: 'md', blocks: E.textToBlocks(s.text) }, { sample: true });
+    loadSource({ name: s.name, kind: 'md', blocks: E.textToBlocks(s.text) }, Object.assign({ sample: true }, opts || {}));
   }
   function bindSources() {
     $('#fileIn').addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
@@ -1092,4 +1092,6 @@
   if (window.MBB_SINGLE_FILE || location.protocol === 'file:' || inClaude) $('#offlineLink').parentElement.hidden = true;
   buildSettingsUI(); bindTree(); bindExport(); bindSources(); bindAI(); bindMemory();
   syncSettingsUI(); renderMemory(); renderDoc(); renderTree(); renderReport(); refresh();
+  // the claude.ai build opens on the sample, so the first view shows the tool at work
+  if (window.MBB_ARTIFACT) loadSample({ announce: false });
 })();
