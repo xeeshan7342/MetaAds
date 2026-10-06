@@ -24,7 +24,16 @@ Word (.docx), Excel (.xlsx, every visible tab), CSV and TSV, text and Markdown. 
 - Ad sets as headings, bold lines (`Ad Set 2: Lookalike 1%`), table rows, spreadsheet rows, or a plain name line right before its targeting.
 - Targeting: locations with radius (`Austin, TX + 15 mile radius`, `15 to 25 mile radius of Naperville, IL`, town lists that share one state), age, gender, interests, custom audiences, lookalikes, exclusions, placements (`Instagram Feed, Stories and Reels; Facebook Feed`), and free text such as `Audience Focus: Age 30 to 55, interests in weight loss, fitness`.
 - Ad copy as lists, numbered lines (`Primary Text 2: ...`), `Option 1:` lines, one block per ad (`Ad 1 – Studio tour reel`), or an ad table (`Ad | Primary Text | Headline | CTA`). Primary text can run over several lines, with emoji. When an ad set lists several primary texts and headlines, the tool makes one ad per primary text and pairs the headlines in order.
-- Campaign settings: objective and where the conversion happens (website, instant form, messages, calls), budgets (daily, monthly, weekly or lifetime, at campaign or ad set level, in any currency format), special ad category, bid strategy (`Cost cap $25`), conversion event, start and end dates, Page, pixel and lead form IDs, and UTM parameters.
+- Every objective with the conversion locations Ads Manager offers for it:
+  - **Awareness:** reach, impressions, ad recall lift, ThruPlay and 2-second video plays.
+  - **Traffic:** website, app, message destinations, Instagram or Facebook profile, calls.
+  - **Engagement:** on your ad (interactions, video views, event responses, reminders set), message destinations (Messenger, Instagram, WhatsApp), Instagram live video, calls, website, app, Instagram or Facebook (Page or profile visits).
+  - **Leads:** website, instant forms, message destinations, calls, app.
+  - **App promotion:** app installs and app events.
+  - **Sales:** website, app, message destinations, calls.
+
+  Write it the way you would say it (`Engagement – Video views`, `Engagement – Messages on WhatsApp`, `Leads (Instant Form)`, `Traffic to Instagram profile`, `App installs`). Each ad set's performance goal list matches what Ads Manager shows for that choice, in the same wording.
+- Campaign settings: budgets (daily, monthly, weekly or lifetime, at campaign or ad set level, in any currency format), special ad category, bid strategy (`Cost cap $25`), conversion event, start and end dates, Page, pixel and lead form IDs, and UTM parameters.
 - Shared targeting written once for the whole account, or for one campaign, applies to every ad set that does not set its own.
 - Answers copied from ChatGPT or Claude (icons, bold labels, `---` rules).
 
@@ -57,7 +66,12 @@ Warnings don't block export: primary text over 125 characters, headlines over 40
 
 ## The after-import list
 
-The import file cannot carry everything. Interests, custom audiences, lookalikes and exclusions need Meta's own audience IDs, and images and videos have to be in the account's media library. The tool keeps these on an **After import** list per ad set, with every interest and audience name from the doc, so nothing gets lost. Download or copy it, and work through it before turning ads on. If you already have an image hash or video ID from the media library, paste it on the ad and it goes into the file.
+The import file cannot carry everything. Interests, custom audiences, lookalikes and exclusions need Meta's own audience IDs, and images and videos have to be in the account's media library. Some settings are also safer to set by hand, based on test imports:
+
+- **Bid strategy.** Ads Manager rejected the bid strategy column on import, so the file leaves it at the default (Highest volume). A cost cap, bid cap or ROAS goal from the doc goes on the list with its amount.
+- **Cities.** Ads Manager can fail to match a city name, and then the ad set keeps only the country. Every city goes on the list so you can check it.
+- **Videos.** A video ad without a video ID is rejected as "Missing video", so it imports as a link ad and the video goes on the list.
+- **Events and lives.** Event response, reminder and Instagram live ads need the event or live picked in Ads Manager. The tool keeps these on an **After import** list per ad set, with every interest and audience name from the doc, so nothing gets lost. Download or copy it, and work through it before turning ads on. If you already have an image hash or video ID from the media library, paste it on the ad and it goes into the file.
 
 ## Importing into Ads Manager
 
@@ -66,6 +80,8 @@ The import file cannot carry everything. Interests, custom audiences, lookalikes
 3. Fix or skip flagged rows, then **Import**. Everything arrives paused unless you chose Active.
 4. Work through the after-import list.
 5. Check one ad set's locations and one ad's preview, then publish.
+
+Call ads take the phone number from Account defaults (or the campaign), and app ads take the App Store or Google Play link and app ID. Those fields appear once a campaign needs them.
 
 The file uses Ads Manager's import column names (`Campaign Objective`, `Ad Set Run Status`, `Body`, `Title`, `Link Object ID` and so on) with one row per ad. Meta changes its template from time to time, so for a new ad account either import one campaign first, or download the blank template from Ads Manager's import screen and load it under **Your Ads Manager template**. The export then uses that template's exact column names and order, and the tool tells you about any data the template has no column for.
 

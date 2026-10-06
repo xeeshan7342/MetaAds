@@ -67,6 +67,7 @@
       <li>Campaigns from a table (<code>Campaign | Objective | Budget | Ad Sets</code>) or headings like <code>Campaign 1: Intro Offer</code>. Ad sets as headings, bold lines (<code>Ad Set 2: Lookalike 1%</code>), table rows or plain names before their targeting.</li>
       <li>Targeting the tool picks up: <code>Location: Austin, TX + 15 mile radius</code>, <code>Age: 25-45</code>, <code>Gender: Women</code>, <code>Interests: yoga, pilates</code>, <code>Custom audience</code>, <code>Lookalike</code>, <code>Exclude</code>, <code>Placements: Instagram Feed and Stories</code>, and free text such as <code>Audience: women 30 to 55 interested in fitness</code>.</li>
       <li>Ad text as lists, numbered lines (<code>Primary Text 2: ...</code>), <code>Option 1:</code> lines, one block per ad, or an ad table (<code>Ad | Primary Text | Headline | CTA</code>). Primary text can run over several lines.</li>
+      <li>Every objective with its conversion location as Ads Manager names it: <code>Engagement – Video views</code>, <code>Engagement – Messages on WhatsApp</code>, <code>Engagement – Facebook Page visits</code>, <code>Leads (Instant Form)</code>, <code>Traffic to Instagram profile</code>, <code>App installs</code>, <code>Awareness</code>.</li>
       <li>Campaign settings: <code>Objective</code>, budgets (daily, monthly or lifetime, campaign or ad set level), <code>Special ad category</code>, <code>Bid strategy: Cost cap $25</code>, <code>Conversion event</code>, start and end dates, Page, pixel and lead form IDs, UTM parameters.</li>
       <li>In a doc that also plans Google or other platforms, only the Meta sections are read. Anything the tool cannot place shows up in the import report, where you can teach it.</li>
     </ul>
@@ -115,6 +116,20 @@
         <div class="field">
           <label class="lbl" for="urlTags">URL parameters <span class="mono">optional</span></label>
           <input id="urlTags" type="text" placeholder="utm_source=meta&amp;utm_medium=paid_social" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field" id="phoneField" hidden>
+          <label class="lbl" for="phone">Phone number <span class="mono">for call ads</span></label>
+          <input id="phone" type="tel" placeholder="+1 214 555 0100" autocomplete="off">
+        </div>
+        <div class="two" id="appFields" hidden>
+          <div class="field">
+            <label class="lbl" for="appStoreUrl">App store link</label>
+            <input id="appStoreUrl" type="url" placeholder="https://apps.apple.com/..." autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="lbl" for="appId">App ID</label>
+            <input id="appId" type="text" inputmode="numeric" placeholder="From Meta for Developers" autocomplete="off" spellcheck="false">
+          </div>
         </div>
         <div class="field">
           <label class="lbl" for="ctaSel">Call to action</label>

@@ -361,3 +361,4 @@ details.ai-route[open] > summary h3::before { content: "▾ "; }
 @media (max-width: 640px) { .after-item { grid-template-columns: minmax(0, 1fr); } }
 .after-item b { font-weight: 500; color: var(--ink-2); }
 .after-item ul { margin: 0; padding-left: 16px; }
+.app-checks { display: flex; flex-wrap: wrap; gap: 4px 14px; min-height: 36px; align-items: center; }

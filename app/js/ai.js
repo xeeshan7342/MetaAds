@@ -50,7 +50,9 @@
         items: obj({
           name: str,
           objective: en('awareness', 'traffic', 'engagement', 'leads', 'sales', 'app_promotion', 'not_stated'),
-          conversion_location: en('website', 'instant_form', 'messages', 'calls', 'not_stated'),
+          conversion_location: en('website', 'app', 'messages', 'instant_form', 'calls', 'on_your_ad', 'instagram_or_facebook', 'instagram_live', 'not_stated'),
+          engagement_type: en('interactions', 'video_views', 'event_responses', 'reminders_set', 'not_stated'),
+          message_apps: { type: 'array', items: en('messenger', 'instagram', 'whatsapp') },
           conversion_event: str,
           budget_amount: numOrNull, budget_period: PERIOD,
           budget_level: en('campaign', 'ad_set', 'not_stated'),
@@ -63,6 +65,7 @@
       },
       settings: obj({
         website_url: str, page_id: str, pixel_id: str, lead_form_id: str, url_parameters: str, cta: str,
+        phone_number: str, app_store_url: str, app_id: str,
         locations: strArr, age_min: intOrNull, age_max: intOrNull, gender: GENDER, placements: str
       }),
       unused_text: { type: 'array', items: obj({ text: str, reason: str }) }
@@ -77,6 +80,7 @@
     'Copy primary text, headlines and descriptions exactly as written, emoji and line breaks included. Never rewrite, shorten, translate or invent ad text. Only remove list numbering, character counts and labels such as "Option 1:".',
     'When an ad set lists several primary texts and headlines without grouping them into ads, put them in the ad set\'s primary_texts, headlines and descriptions lists and leave ads empty. When the document defines individual ads, put each in ads.',
     'Text written for a whole campaign or the whole account (shared ad copy, shared targeting) goes on that campaign or in settings, not copied into every ad set.',
+    'Objectives follow Ads Manager: awareness, traffic, engagement, leads, app_promotion, sales. conversion_location is where results happen: website, app, messages (Messenger, Instagram or WhatsApp; list them in message_apps), instant_form, calls, on_your_ad (with engagement_type interactions, video_views, event_responses or reminders_set), instagram_or_facebook (Page or profile visits, followers) or instagram_live. Awareness has none.',
     'Budgets: give the amount and the period the document states; not_stated when it does not say. budget_level is ad_set when the document gives each ad set its own budget (ABO), campaign for a campaign budget (CBO or Advantage campaign budget).',
     'Locations: one item per place exactly as written, with any radius, for example "Austin, TX + 10 mi" or "United Kingdom".',
     'Interests, custom audiences, lookalikes and exclusions: one item per audience as written. Put a lookalike in custom_audiences, for example "1% lookalike of purchasers".',
@@ -93,7 +97,9 @@
     title: 'string',
     campaigns: [{
       name: 'string', objective: 'awareness|traffic|engagement|leads|sales|app_promotion|not_stated',
-      conversion_location: 'website|instant_form|messages|calls|not_stated', conversion_event: 'string, e.g. Lead or Purchase',
+      conversion_location: 'website|app|messages|instant_form|calls|on_your_ad|instagram_or_facebook|instagram_live|not_stated',
+      engagement_type: 'interactions|video_views|event_responses|reminders_set|not_stated', message_apps: ['messenger|instagram|whatsapp'],
+      conversion_event: 'string, e.g. Lead or Purchase',
       budget_amount: 'number or null', budget_period: 'daily|monthly|weekly|lifetime|not_stated', budget_level: 'campaign|ad_set|not_stated',
       special_ad_category: 'none|housing|employment|financial|politics|not_stated',
       bid_strategy: 'highest_volume|cost_cap|bid_cap|roas_goal|not_stated', bid_amount: 'number or null',
@@ -107,7 +113,7 @@
         ads: [{ name: 'string', primary_text: 'string', headline: 'string', description: 'string', cta: 'string', url: 'string', format: 'image|video|carousel|not_stated', creative_notes: 'string' }]
       }]
     }],
-    settings: { website_url: 'string', page_id: 'string', pixel_id: 'string', lead_form_id: 'string', url_parameters: 'string', cta: 'string', locations: ['string'], age_min: 'integer or null', age_max: 'integer or null', gender: 'all|men|women|not_stated', placements: 'string' },
+    settings: { website_url: 'string', page_id: 'string', pixel_id: 'string', lead_form_id: 'string', url_parameters: 'string', cta: 'string', phone_number: 'string', app_store_url: 'string', app_id: 'string', locations: ['string'], age_min: 'integer or null', age_max: 'integer or null', gender: 'all|men|women|not_stated', placements: 'string' },
     unused_text: [{ text: 'string', reason: 'string' }]
   };
 
@@ -279,7 +285,8 @@
   };
 
   const OBJ = { awareness: 'awareness', traffic: 'traffic', engagement: 'engagement', leads: 'leads', sales: 'sales', app_promotion: 'app installs' };
-  const LOC = { website: 'website', instant_form: 'instant form', messages: 'messages', calls: 'calls' };
+  const LOC = { website: 'website', app: 'app', instant_form: 'instant form', messages: 'messages', calls: 'calls', on_your_ad: 'on your ad', instagram_or_facebook: 'instagram or facebook', instagram_live: 'instagram live' };
+  const ENG = { interactions: 'interactions', video_views: 'video views', event_responses: 'event responses', reminders_set: 'reminders' };
   const SPECIAL = { none: 'none', housing: 'housing', employment: 'employment', financial: 'financial products', politics: 'politics' };
   const BID = { highest_volume: 'highest volume', cost_cap: 'cost cap', bid_cap: 'bid cap', roas_goal: 'roas goal' };
   const stated = v => v && v !== 'not_stated';
@@ -303,6 +310,8 @@
       res.campaigns.push(cn);
       if (stated(c.objective)) put(cn, 'objective', OBJ[c.objective] || c.objective);
       if (stated(c.conversion_location)) put(cn, 'conversionLocation', LOC[c.conversion_location]);
+      if (stated(c.engagement_type)) put(cn, 'engagementType', ENG[c.engagement_type]);
+      if (Array.isArray(c.message_apps) && c.message_apps.length) put(cn, 'messageApps', c.message_apps.join(', '));
       put(cn, 'event', c.conversion_event);
       if (c.budget_level === 'campaign') cn.f.budgetType = 'campaign';
       if (c.budget_level === 'ad_set') cn.f.budgetType = 'adset';
@@ -352,6 +361,9 @@
     put(acct, 'leadForm', s.lead_form_id);
     put(acct, 'urlTags', s.url_parameters);
     put(acct, 'cta', s.cta);
+    put(acct, 'phone', s.phone_number);
+    put(acct, 'appStore', s.app_store_url);
+    put(acct, 'appId', s.app_id);
     listInto(acct, 'locations', s.locations);
     if (s.age_min != null || s.age_max != null) put(acct, 'age', (s.age_min || 18) + '-' + (s.age_max || 65));
     if (stated(s.gender) && s.gender !== 'all') put(acct, 'gender', s.gender);

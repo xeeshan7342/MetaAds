@@ -8,7 +8,7 @@ test('a Google + Meta agency doc: only the Meta section is read, campaign table 
   const m = parseHTML(fixture('google-meta-doc.html'), 'Cedar_Ridge.docx');
   const s = summary(m);
   assert.deepEqual(s.map(c => [c.name, c.objective, c.location, c.budget && c.budget.amount]), [
-    ['Implant Lead Gen', 'LEADS', 'form', 29.61], ['Retargeting', 'TRAFFIC', null, 4.93]]);
+    ['Implant Lead Gen', 'LEADS', 'form', 29.61], ['Retargeting', 'TRAFFIC', 'website', 4.93]]);
   assert.deepEqual(s[0].adSets.map(a => a.name), ['Implant Seekers', 'Lookalike 1%']);
   const seekers = setNamed(m, 'Implant Seekers');
   assert.deepEqual(seekers.age, [45, 65]);

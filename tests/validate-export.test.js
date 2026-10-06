@@ -78,10 +78,13 @@ test('export rows: one row per ad, parent columns repeated, Meta values', () => 
   assert.equal(r0[col('Publisher Platforms')], 'instagram');
   assert.equal(r0[col('Instagram Positions')], 'stream, story');
   assert.equal(r0[col('Link Object ID')], 'o:104455667788990');
-  assert.equal(r0[col('Creative Type')], 'Video Page Post Ad');
+  assert.equal(r0[col('Creative Type')], 'Link Page Post Ad', 'a video ad with no video ID goes in as a link ad, not as "Missing video"');
+  assert.equal(r0[col('Destination Type')], 'WEBSITE');
+  assert.ok(!t.headers.includes('Campaign Bid Strategy') && !t.headers.includes('Ad Set Bid Strategy'), 'bid strategy is left to Ads Manager\'s default');
   assert.equal(r0[col('Call to Action')], 'SHOP_NOW');
   const lead = t.rows[4];
   assert.equal(lead[col('Optimization Goal')], 'LEAD_GENERATION');
+  assert.equal(lead[col('Destination Type')], 'ON_AD');
   assert.equal(lead[col('Lead Form ID')], '556677889900112');
   assert.equal(lead[col('Link')], '', 'instant form ads carry no website link');
   assert.equal(lead[col('Campaign Daily Budget')], '9.87');
@@ -132,6 +135,7 @@ test('reading the header row of a template file', async () => {
 test('the after-import list carries what the file cannot', () => {
   const list = E.checklist(chat(), settings());
   const local = list.find(g => g.adSet === 'Local Yoga Interest');
-  assert.deepEqual(local.items.map(i => i.kind), ['interests', 'exclusions', 'radius', 'media']);
+  assert.deepEqual(local.items.map(i => i.kind), ['interests', 'exclusions', 'cities', 'media']);
+  assert.deepEqual(local.items.find(i => i.kind === 'cities').values, ['Austin, TX (+10 mi)']);
   assert.match(E.checklistText(list, chat()), /Detailed targeting:\n {4}- Yoga/);
 });

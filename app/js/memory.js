@@ -10,7 +10,7 @@
     audiences: 'Custom or lookalike audiences', exclusions: 'Exclusions section', audience: 'Audience description', locations: 'Locations section',
     placements: 'Placements', other: 'Section to skip', campaign: 'Campaign name', adset: 'Ad set name', ad: 'Ad name', ignore: 'Line to ignore'
   };
-  const PROFILE_FIELDS = ['pageId', 'pixelId', 'leadFormId', 'url', 'urlTags', 'cta', 'locations', 'ageMin', 'ageMax', 'gender', 'status'];
+  const PROFILE_FIELDS = ['pageId', 'pixelId', 'leadFormId', 'url', 'urlTags', 'cta', 'locations', 'ageMin', 'ageMax', 'gender', 'status', 'phone', 'appId', 'appStoreUrl'];
 
   const empty = () => ({ version: 1, labels: {}, profiles: {}, template: null });
 
@@ -115,6 +115,9 @@
     ['pageId', 'pixelId', 'leadFormId'].forEach(f => { const v = ID(src[f]); if (v) s[f] = v; });
     if (typeof src.url === 'string') s.url = src.url.slice(0, 2000);
     if (typeof src.urlTags === 'string') s.urlTags = src.urlTags.slice(0, 1000);
+    if (typeof src.phone === 'string' && /^\+?\d{7,15}$/.test(src.phone.replace(/[^\d+]/g, ''))) s.phone = src.phone.replace(/[^\d+]/g, '');
+    if (/^\d{5,20}$/.test(String(src.appId || ''))) s.appId = String(src.appId);
+    if (typeof src.appStoreUrl === 'string' && /^https:\/\//.test(src.appStoreUrl)) s.appStoreUrl = src.appStoreUrl.slice(0, 2000);
     if (E.CTAS.some(c => c[0] === src.cta)) s.cta = src.cta;
     if (Array.isArray(src.locations)) {
       s.locations = src.locations.filter(l => l && LOC_TYPES.includes(l.type) && typeof l.name === 'string').slice(0, 200).map(l => {

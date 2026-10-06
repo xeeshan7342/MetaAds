@@ -227,7 +227,12 @@
     ['startDate', /^(?:campaign\s+|ad\s*set\s+)?(?:start(?:\s+date)?|launch(?:\s+date)?|go\s*live(?:\s+date)?)$/],
     ['endDate', /^(?:campaign\s+|ad\s*set\s+)?(?:end(?:\s+date)?|stop(?:\s+date)?|finish(?:\s+date)?)$/],
     ['schedule', /^(?:schedule|flight(?:\s+dates)?|run\s+dates|campaign\s+dates|dates|duration)$/],
-    ['conversionLocation', /^(?:conversion\s+location|lead\s+(?:method|type|capture(?:\s+method)?)|destination\s+type)$/],
+    ['conversionLocation', /^(?:conversion\s+location|lead\s+(?:method|type|capture(?:\s+method)?)|destination(?:\s+type)?)$/],
+    ['engagementType', /^engagement\s+type$/],
+    ['messageApps', /^(?:message|messaging)\s+(?:destinations?|apps?|channels?|platforms?)$/],
+    ['phone', /^(?:(?:business|call|calling|whatsapp|contact)\s+)?(?:phone(?:\s+number)?|number\s+to\s+call|call\s+number)$/],
+    ['appId', /^(?:app|application)\s+id$/],
+    ['appStore', /^(?:app\s+store|play\s+store|google\s+play|app)(?:\s+(?:url|link))?$/],
     ['event', /^(?:conversion(?:\s+event)?|optimi[sz]ation\s+event|pixel\s+event|conversion\s+goal|tracking\s+event|key\s+event|event)$/],
     ['optimization', /^(?:optimi[sz]ation(?:\s+goal)?|performance\s+goal|optimi[sz]e\s+for|delivery\s+optimi[sz]ation|optimi[sz]ed\s+for)$/],
     ['pixel', /^(?:meta\s+|facebook\s+)?(?:pixel|dataset)(?:\s+id)?$/],
@@ -247,7 +252,7 @@
     ['headline', /^(?:headlines?|titles?)$/],
     ['description', /^(?:(?:news\s*feed\s+)?link\s+descriptions?|descriptions?)$/],
     ['cta', /^(?:cta(?:\s+button)?|call\s*to\s*action(?:\s+button)?|button(?:\s+text)?)$/],
-    ['url', /^(?:(?:website|destination|landing\s+page|final|link|lp)\s+(?:url|link)|urls?|website|destination|landing\s+pages?|link|lp)$/],
+    ['url', /^(?:(?:website|destination|landing\s+page|final|link|lp)\s+(?:url|link)|urls?|website|landing\s+pages?|link|lp)$/],
     ['displayLink', /^display\s+(?:link|url)$/],
     ['urlTags', /^(?:url\s+(?:parameters|tags|params)|utms?|utm\s+(?:parameters|tags|codes?|params)|tracking(?:\s+(?:parameters|template))?)$/],
     ['format', /^(?:(?:creative\s+)?format|creative\s+type|media\s+type)$/],
@@ -443,14 +448,52 @@
   }
   const objectiveLabel = k => (OBJECTIVES.find(o => o[0] === k) || [, ''])[1];
 
-  // Where the conversion happens: website, instant form, messages, calls
+  // Conversion locations as Ads Manager names them, and which objectives offer each
+  const LOCATIONS = [
+    ['website', 'Website'], ['app', 'App'], ['messages', 'Message destinations'], ['form', 'Instant forms'], ['calls', 'Calls'],
+    ['on_ad', 'On your ad'], ['profile', 'Instagram or Facebook'], ['ig_live', 'Instagram live video']
+  ];
+  const LOCATIONS_BY_OBJECTIVE = {
+    AWARENESS: [],
+    TRAFFIC: ['website', 'app', 'messages', 'profile', 'calls'],
+    ENGAGEMENT: ['on_ad', 'messages', 'ig_live', 'calls', 'website', 'app', 'profile'],
+    LEADS: ['website', 'form', 'messages', 'calls', 'app'],
+    APP_PROMOTION: ['app'],
+    SALES: ['website', 'app', 'messages', 'calls']
+  };
+  const DEFAULT_LOCATION = { TRAFFIC: 'website', ENGAGEMENT: 'on_ad', LEADS: 'website', APP_PROMOTION: 'app', SALES: 'website' };
+  const locationLabel = k => (LOCATIONS.find(l => l[0] === k) || [, ''])[1];
+  // "On your ad" engagement types
+  const ENGAGEMENT_TYPES = [['interactions', 'Interactions'], ['video_views', 'Video views'], ['event_responses', 'Event responses'], ['reminders', 'Reminders set']];
+  const MESSAGE_APPS = [['messenger', 'Messenger'], ['instagram', 'Instagram'], ['whatsapp', 'WhatsApp']];
+
   function parseConversionLocation(v) {
     const t = norm(v).toLowerCase();
     if (/instant\s+forms?|lead\s+forms?|native\s+forms?|on[\s-]facebook\s+forms?|in[\s-]app\s+forms?|\bforms?\b/.test(t)) return 'form';
-    if (/messenger|whats\s?app|\bmessages?\b|\bdms?\b|direct\s+messages?|instagram\s+direct/.test(t)) return 'messages';
+    if (/instagram\s+live|\blive\s+(?:video|stream)/.test(t)) return 'ig_live';
+    if (/messenger|whats\s?app|\bmessages?\b|messaging|\bdms?\b|direct\s+messages?|instagram\s+direct|conversations?/.test(t)) return 'messages';
     if (/\bcalls?\b|phone/.test(t)) return 'calls';
+    if (/on\s+(?:your|the)\s+ad|video\s+views?|thru\s?play|2[\s-]second|post\s+engagement|interactions?|likes?,?\s+comments|event\s+responses?|reminders?/.test(t)) return 'on_ad';
+    if (/profile\s+visits?|page\s+visits?|page\s+likes?|followers?|instagram\s+or\s+facebook|instagram\s+profile|facebook\s+page\b/.test(t)) return 'profile';
+    if (/\bapp\b|app\s+store|play\s+store|\binstalls?\b/.test(t)) return 'app';
     if (/website|\bsite\b|landing\s+page|\bweb\b|pixel/.test(t)) return 'website';
     return null;
+  }
+  function parseEngagementType(v) {
+    const t = norm(v).toLowerCase();
+    if (/video\s+views?|thru\s?play|2[\s-]second|video\s+plays?/.test(t)) return 'video_views';
+    if (/event\s+(?:responses?|rsvps?)/.test(t)) return 'event_responses';
+    if (/reminders?/.test(t)) return 'reminders';
+    if (/interactions?|post\s+engagement|\blikes?\b|comments?|shares?/.test(t)) return 'interactions';
+    return null;
+  }
+  function parseMessageApps(v) {
+    const t = norm(v).toLowerCase();
+    const out = [];
+    if (/messenger|facebook\s+messag/.test(t)) out.push('messenger');
+    if (/instagram|\big\b|insta\b/.test(t)) out.push('instagram');
+    if (/whats\s?app/.test(t)) out.push('whatsapp');
+    return out;
   }
 
   const EVENTS = [
@@ -471,26 +514,55 @@
   ];
   const parseEvent = v => { const t = norm(v).toLowerCase(); const hit = EVENTS.find(e => e[2].test(t)); return hit ? hit[0] : null; };
 
+  // Performance goals, worded as Ads Manager shows them
   const GOALS = {
-    REACH: 'Reach', IMPRESSIONS: 'Impressions', AD_RECALL_LIFT: 'Ad recall lift', THRUPLAY: 'ThruPlay',
-    LANDING_PAGE_VIEWS: 'Landing page views', LINK_CLICKS: 'Link clicks',
-    POST_ENGAGEMENT: 'Post engagement', CONVERSATIONS: 'Conversations',
-    OFFSITE_CONVERSIONS: 'Conversions', LEAD_GENERATION: 'Leads (instant form)', QUALITY_LEAD: 'Conversion leads', QUALITY_CALL: 'Calls',
-    VALUE: 'Value'
+    REACH: 'Maximise reach of ads', IMPRESSIONS: 'Maximise number of impressions', AD_RECALL_LIFT: 'Maximise ad recall lift',
+    THRUPLAY: 'Maximise ThruPlay views', TWO_SECOND_CONTINUOUS_VIDEO_VIEWS: 'Maximise 2-second continuous video plays',
+    LANDING_PAGE_VIEWS: 'Maximise number of landing page views', LINK_CLICKS: 'Maximise number of link clicks',
+    POST_ENGAGEMENT: 'Maximise engagement with a post', EVENT_RESPONSES: 'Maximise number of event responses', REMINDERS_SET: 'Maximise number of reminders set',
+    CONVERSATIONS: 'Maximise number of conversations', QUALITY_CALL: 'Maximise number of calls',
+    PROFILE_VISIT: 'Maximise number of Facebook Page visits', VISIT_INSTAGRAM_PROFILE: 'Maximise number of Instagram profile visits',
+    OFFSITE_CONVERSIONS: 'Maximise number of conversions', VALUE: 'Maximise value of conversions',
+    LEAD_GENERATION: 'Maximise number of leads', QUALITY_LEAD: 'Maximise number of conversion leads',
+    APP_INSTALLS: 'Maximise number of app installs'
   };
-  const GOALS_BY_OBJECTIVE = {
-    AWARENESS: ['REACH', 'IMPRESSIONS', 'AD_RECALL_LIFT', 'THRUPLAY'],
-    TRAFFIC: ['LANDING_PAGE_VIEWS', 'LINK_CLICKS', 'REACH', 'IMPRESSIONS', 'CONVERSATIONS'],
-    ENGAGEMENT: ['POST_ENGAGEMENT', 'THRUPLAY', 'CONVERSATIONS', 'LINK_CLICKS', 'OFFSITE_CONVERSIONS'],
-    LEADS: ['OFFSITE_CONVERSIONS', 'LEAD_GENERATION', 'QUALITY_LEAD', 'CONVERSATIONS', 'QUALITY_CALL'],
-    SALES: ['OFFSITE_CONVERSIONS', 'VALUE', 'LANDING_PAGE_VIEWS', 'LINK_CLICKS', 'CONVERSATIONS'],
-    APP_PROMOTION: []
+  const WEB = ['LANDING_PAGE_VIEWS', 'LINK_CLICKS', 'REACH', 'IMPRESSIONS'];
+  const GOAL_TABLE = {
+    AWARENESS: { '': ['REACH', 'IMPRESSIONS', 'AD_RECALL_LIFT', 'THRUPLAY', 'TWO_SECOND_CONTINUOUS_VIDEO_VIEWS'] },
+    TRAFFIC: { website: WEB, app: ['LINK_CLICKS', 'REACH'], messages: ['LINK_CLICKS', 'REACH', 'IMPRESSIONS'], profile: ['VISIT_INSTAGRAM_PROFILE', 'PROFILE_VISIT'], calls: ['QUALITY_CALL'] },
+    ENGAGEMENT: {
+      on_ad: null, messages: ['CONVERSATIONS', 'LINK_CLICKS'], ig_live: ['REACH', 'IMPRESSIONS'], calls: ['QUALITY_CALL'],
+      website: ['OFFSITE_CONVERSIONS'].concat(WEB), app: ['OFFSITE_CONVERSIONS', 'LINK_CLICKS', 'REACH'], profile: ['PROFILE_VISIT', 'VISIT_INSTAGRAM_PROFILE']
+    },
+    LEADS: { website: ['OFFSITE_CONVERSIONS'].concat(WEB), form: ['LEAD_GENERATION', 'QUALITY_LEAD'], messages: ['LEAD_GENERATION', 'CONVERSATIONS'], calls: ['QUALITY_CALL'], app: ['OFFSITE_CONVERSIONS', 'LINK_CLICKS'] },
+    APP_PROMOTION: { app: ['APP_INSTALLS', 'OFFSITE_CONVERSIONS', 'VALUE', 'LINK_CLICKS'] },
+    SALES: { website: ['OFFSITE_CONVERSIONS', 'VALUE'].concat(WEB), app: ['OFFSITE_CONVERSIONS', 'VALUE', 'LINK_CLICKS'], messages: ['CONVERSATIONS', 'OFFSITE_CONVERSIONS'], calls: ['QUALITY_CALL'] }
   };
+  const ON_AD_GOALS = {
+    interactions: ['POST_ENGAGEMENT', 'REACH', 'IMPRESSIONS'], video_views: ['THRUPLAY', 'TWO_SECOND_CONTINUOUS_VIDEO_VIEWS'],
+    event_responses: ['EVENT_RESPONSES', 'POST_ENGAGEMENT'], reminders: ['REMINDERS_SET']
+  };
+  // The performance goals Ads Manager offers for this campaign's objective, conversion location and engagement type
+  function goalsFor(c) {
+    const table = GOAL_TABLE[c && c.objective];
+    if (!table) return [];
+    if (c.objective === 'AWARENESS') return table[''];
+    const loc = (LOCATIONS_BY_OBJECTIVE[c.objective] || []).includes(c.conversionLocation) ? c.conversionLocation : DEFAULT_LOCATION[c.objective];
+    if (c.objective === 'ENGAGEMENT' && loc === 'on_ad') return ON_AD_GOALS[c.engagementType] || ON_AD_GOALS.interactions;
+    return table[loc] || [];
+  }
+  const goalLabel = (g, c) => c && c.conversionLocation === 'app' && g === 'OFFSITE_CONVERSIONS' ? 'Maximise number of app events' : (GOALS[g] || g);
   function parseGoal(v) {
     const t = norm(v).toLowerCase();
     if (/landing\s+page\s+views?|\blpv/.test(t)) return 'LANDING_PAGE_VIEWS';
     if (/link\s+clicks?|\bclicks?\b/.test(t)) return 'LINK_CLICKS';
+    if (/2[\s-]second/.test(t)) return 'TWO_SECOND_CONTINUOUS_VIDEO_VIEWS';
     if (/thru\s?play|video\s+views?/.test(t)) return 'THRUPLAY';
+    if (/event\s+responses?/.test(t)) return 'EVENT_RESPONSES';
+    if (/reminders?/.test(t)) return 'REMINDERS_SET';
+    if (/instagram\s+profile\s+visits?|profile\s+visits?\s+on\s+instagram/.test(t)) return 'VISIT_INSTAGRAM_PROFILE';
+    if (/page\s+visits?|profile\s+visits?|page\s+likes?|followers?/.test(t)) return 'PROFILE_VISIT';
+    if (/app\s+installs?|\binstalls?\b/.test(t)) return 'APP_INSTALLS';
     if (/ad\s+recall/.test(t)) return 'AD_RECALL_LIFT';
     if (/\breach\b/.test(t)) return 'REACH';
     if (/impressions/.test(t)) return 'IMPRESSIONS';
@@ -549,6 +621,7 @@
     ['GET_QUOTE', 'Get quote', /quote|estimate/],
     ['GET_OFFER', 'Get offer', /\boffer|\bdeal|claim|coupon|discount|promo/],
     ['APPLY_NOW', 'Apply now', /apply/],
+    ['INSTALL_MOBILE_APP', 'Install now', /install/],
     ['DOWNLOAD', 'Download', /download|get\s+(?:the\s+|your\s+)?(?:free\s+)?(?:guide|ebook|e-book|checklist|brochure)/],
     ['ORDER_NOW', 'Order now', /\border/],
     ['SUBSCRIBE', 'Subscribe', /subscri/],
@@ -925,8 +998,18 @@
   }
 
   // Which node a field belongs to, given the current campaign / ad set / ad
-  const CAMPAIGN_FIELDS = new Set(['objective', 'specialCategory', 'budgetType']);
+  const CAMPAIGN_FIELDS = new Set(['objective', 'specialCategory', 'budgetType', 'engagementType', 'messageApps']);
+  const ACCOUNT_FIELDS = new Set(['phone', 'appId', 'appStore']);
   const ADSET_FIELDS = new Set(['budget', 'bidStrategy', 'bidAmount', 'startDate', 'endDate', 'schedule', 'conversionLocation', 'event', 'optimization', 'pixel', 'page', 'leadForm', 'age', 'gender', 'locations', 'interests', 'audiences', 'exclusions', 'audience', 'placements', 'languages', 'devices']);
+
+  // A goal that only one conversion location offers
+  const GOAL_LOCATION = { THRUPLAY: 'on_ad', TWO_SECOND_CONTINUOUS_VIDEO_VIEWS: 'on_ad', POST_ENGAGEMENT: 'on_ad', EVENT_RESPONSES: 'on_ad', REMINDERS_SET: 'on_ad', CONVERSATIONS: 'messages', QUALITY_CALL: 'calls', PROFILE_VISIT: 'profile', VISIT_INSTAGRAM_PROFILE: 'profile', LEAD_GENERATION: 'form', APP_INSTALLS: 'app' };
+  // the engagement type and message apps a location phrase carries
+  function setLocationDetail(f, v) {
+    const et = parseEngagementType(v);
+    if (et && (f.conversionLocation === 'on_ad' || !f.conversionLocation)) f.engagementType = f.engagementType || et;
+    if (f.conversionLocation === 'messages') { const apps = parseMessageApps(v); if (apps.length && !f.messageApps) f.messageApps = apps; }
+  }
 
   // Put one field value on a node. Returns false when the value could not be read.
   function putField(res, node, field, value, src) {
@@ -937,10 +1020,11 @@
         const o = parseObjective(v);
         if (!o) return false;
         f.objective = o;
-        const loc = parseConversionLocation(v);
-        if (loc && !f.conversionLocation) f.conversionLocation = loc;
-        if (o === 'ENGAGEMENT' && /video\s+views?|thruplay/i.test(v) && !f.optimization) f.optimization = 'THRUPLAY';
-        if (o === 'ENGAGEMENT' && /messag|conversation|\bdms?\b/i.test(v) && !f.optimization) f.optimization = 'CONVERSATIONS';
+        // "Engagement – Video views", "Leads (Instant Form)", "Traffic to Instagram profile"
+        const rest = v.replace(/^[^(–—:-]*?(?:awareness|traffic|engagement|leads?|lead\s+gen(?:eration)?|sales|app\s+promotion)\b/i, '');
+        const loc = parseConversionLocation(rest) || (o === 'APP_PROMOTION' ? 'app' : null);
+        if (loc && (LOCATIONS_BY_OBJECTIVE[o] || []).includes(loc) && !f.conversionLocation) f.conversionLocation = loc;
+        setLocationDetail(f, rest);
         if (o === 'TRAFFIC' && /link\s+clicks?/i.test(v) && !f.optimization) f.optimization = 'LINK_CLICKS';
         return true;
       }
@@ -977,7 +1061,12 @@
         if (s.end) f.endDate = s.end;
         return true;
       }
-      case 'conversionLocation': { const c = parseConversionLocation(v); if (!c) return false; f.conversionLocation = c; return true; }
+      case 'conversionLocation': { const c = parseConversionLocation(v); if (!c) return false; f.conversionLocation = c; setLocationDetail(f, v); return true; }
+      case 'engagementType': { const e = parseEngagementType(v); if (!e) return false; f.engagementType = e; f.conversionLocation = f.conversionLocation || 'on_ad'; return true; }
+      case 'messageApps': { const a = parseMessageApps(v); if (!a.length) return false; f.messageApps = a; f.conversionLocation = f.conversionLocation || 'messages'; return true; }
+      case 'phone': { const m = v.match(/\+?\d[\d\s().-]{6,}\d/); if (!m) return false; f.phone = m[0].replace(/[^\d+]/g, ''); return true; }
+      case 'appId': { const m = v.match(/\d{6,20}/); if (!m) return false; f.appId = m[0]; return true; }
+      case 'appStore': { const u = findUrl(v); if (!u) return false; f.appStoreUrl = u; return true; }
       case 'event': {
         const e = parseEvent(v);
         const loc = parseConversionLocation(v);
@@ -989,8 +1078,8 @@
       case 'optimization': {
         const g = parseGoal(v);
         const e = parseEvent(v);
-        const loc = parseConversionLocation(v);
-        if (loc) f.conversionLocation = f.conversionLocation || loc;
+        const loc = parseConversionLocation(v) || GOAL_LOCATION[g] || null;
+        if (loc) { f.conversionLocation = f.conversionLocation || loc; setLocationDetail(f, v); }
         if (g) f.optimization = g;
         if (e && (g === 'OFFSITE_CONVERSIONS' || !g)) f.event = f.event || e;
         return !!(g || e || loc);
@@ -1182,6 +1271,7 @@
       }
     };
     const nodeFor = field => {
+      if (ACCOUNT_FIELDS.has(field)) return res.account;
       if (CAMPAIGN_FIELDS.has(field)) return cur('campaign') || res.account;
       if (ADSET_FIELDS.has(field)) return cur('adset') || cur('campaign') || res.account;
       return cur('ad') || cur('adset') || cur('campaign') || res.account;
@@ -1649,13 +1739,16 @@
         sets = [a];
       }
       const objective = pick('objective', cn, acct);
-      let convLoc = pick('conversionLocation', cn, acct) || sets.map(s => s.f.conversionLocation).find(Boolean) || null;
-      if (!convLoc && (objective === 'LEADS' || objective === 'SALES')) {
-        convLoc = 'website';
-        if (objective === 'LEADS') notes.push({ msg: cn.name + ': the doc does not say where leads come in, so it is set to Website. Switch to Instant form if the plan uses Meta lead forms.', level: 'info' });
+      const allowed = LOCATIONS_BY_OBJECTIVE[objective] || [];
+      let convLoc = [pick('conversionLocation', cn, acct)].concat(sets.map(s => s.f.conversionLocation)).find(x => x && allowed.includes(x)) || null;
+      if (!convLoc && DEFAULT_LOCATION[objective]) {
+        convLoc = DEFAULT_LOCATION[objective];
+        if (objective === 'LEADS') notes.push({ msg: (cn.name || 'A campaign') + ': the doc does not say where leads come in, so it is set to Website. Switch to Instant forms if the plan uses Meta lead forms.', level: 'info' });
       }
+      const engagementType = convLoc === 'on_ad' ? (pick('engagementType', cn, acct) || sets.map(s => s.f.engagementType).find(Boolean) || 'interactions') : '';
+      const messageApps = convLoc === 'messages' ? (pick('messageApps', cn, acct) || sets.map(s => s.f.messageApps).find(Boolean) || ['messenger', 'instagram']).slice() : [];
       const camp = {
-        id: nid('c'), name: cn.name || 'Campaign ' + (campaigns.length + 1), objective, conversionLocation: convLoc,
+        id: nid('c'), name: cn.name || 'Campaign ' + (campaigns.length + 1), objective, conversionLocation: convLoc, engagementType, messageApps,
         special: pick('specialCategory', cn, acct) || 'NONE',
         budget: null, budgetLevel: 'campaign',
         bidStrategy: pick('bidStrategy', cn, acct) || 'LOWEST_COST_WITHOUT_CAP', bidAmount: pick('bidAmount', cn, acct),
@@ -1716,7 +1809,6 @@
         };
         if (camp.budgetLevel === 'adset' && !as.budget && sn.f.budget) as.budget = budgetOut(sn.f.budget);
         if (as.budget && sn.f.budget && sn.f.budget.basis === 'monthly') notes.push({ msg: as.name + ': monthly budget of ' + fmtNum(sn.f.budget.amount) + ' set as ' + fmtNum(sn.f.budget.daily) + ' a day.', level: 'info' });
-        if (sn.f.conversionLocation && !camp.conversionLocation) camp.conversionLocation = sn.f.conversionLocation;
         adSets.push(as);
 
         // ads: the doc's own ads, else one ad per primary text (headlines and descriptions are paired in order)
@@ -1765,6 +1857,9 @@
     if (acct.f.pixel) detected.pixelId = acct.f.pixel;
     if (acct.f.leadForm) detected.leadFormId = acct.f.leadForm;
     if (acct.f.urlTags) detected.urlTags = acct.f.urlTags;
+    if (acct.f.phone) detected.phone = acct.f.phone;
+    if (acct.f.appId) detected.appId = acct.f.appId;
+    if (acct.f.appStoreUrl) detected.appStoreUrl = acct.f.appStoreUrl;
     if (acct.f.cta) detected.cta = acct.f.cta;
     if (acct.l.locations.length) detected.locations = acct.l.locations;
     if (acct.f.ageMin) { detected.ageMin = acct.f.ageMin; detected.ageMax = acct.f.ageMax; }
@@ -1798,7 +1893,20 @@
 
   const LIMITS = { primary: 125, headline: 40, description: 30 };
   const isUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) && /\./.test(x.hostname); } catch (e) { return false; } };
-  const adEff = (ad, S) => ({ url: ad.url || S.url || '', cta: ad.cta || S.cta || 'LEARN_MORE', urlTags: ad.urlTags || S.urlTags || '' });
+  // The button an ad gets when it does not name one: message, call and app ads have their own
+  function defaultCta(c, S) {
+    const loc = c && c.conversionLocation;
+    if (loc === 'messages') return (c.messageApps || []).length === 1 && c.messageApps[0] === 'whatsapp' ? 'WHATSAPP_MESSAGE' : 'MESSAGE_PAGE';
+    if (loc === 'calls') return 'CALL_NOW';
+    if (loc === 'app') return 'INSTALL_MOBILE_APP';
+    return (S && S.cta) || 'LEARN_MORE';
+  }
+  const phoneOf = (c, S) => String((c && c.phone) || (S && S.phone) || '').replace(/[^\d+]/g, '');
+  const adEff = (ad, S, c) => ({
+    url: c && c.conversionLocation === 'app' ? (ad.url || (S && S.appStoreUrl) || '') : (ad.url || S.url || ''),
+    cta: ad.cta || defaultCta(c, S),
+    urlTags: ad.urlTags || S.urlTags || ''
+  });
   const setEff = (as, S) => ({
     locations: as.locations.length ? as.locations : (S.locations || []),
     ageMin: as.ageMin != null && as.ageMin !== '' ? +as.ageMin : (S.ageMin != null && S.ageMin !== '' ? +S.ageMin : 18),
@@ -1806,19 +1914,35 @@
     gender: as.gender || S.gender || 'all'
   });
   function goalFor(camp, as) {
-    if (as && as.goal && (GOALS_BY_OBJECTIVE[camp.objective] || []).includes(as.goal)) return as.goal;
-    switch (camp.objective) {
-      case 'AWARENESS': return 'REACH';
-      case 'TRAFFIC': return 'LANDING_PAGE_VIEWS';
-      case 'ENGAGEMENT': return camp.conversionLocation === 'messages' ? 'CONVERSATIONS' : 'POST_ENGAGEMENT';
-      case 'LEADS': return camp.conversionLocation === 'form' ? 'LEAD_GENERATION' : camp.conversionLocation === 'messages' ? 'CONVERSATIONS' : camp.conversionLocation === 'calls' ? 'QUALITY_CALL' : 'OFFSITE_CONVERSIONS';
-      case 'SALES': return camp.conversionLocation === 'messages' ? 'CONVERSATIONS' : 'OFFSITE_CONVERSIONS';
+    const list = goalsFor(camp);
+    if (as && as.goal && list.includes(as.goal)) return as.goal;
+    return list[0] || '';
+  }
+  const eventFor = (camp, as) => (as && as.event) || camp.event || (camp.objective === 'SALES' ? 'PURCHASE' : camp.objective === 'LEADS' ? 'LEAD' : '');
+  // website conversions need the pixel; app events use the app instead
+  const needsPixel = (camp, as) => ['OFFSITE_CONVERSIONS', 'VALUE'].includes(goalFor(camp, as)) && camp.conversionLocation !== 'app';
+  const needsUrl = (camp, as) => camp.conversionLocation === 'website' || (!camp.conversionLocation && ['TRAFFIC', 'LEADS', 'SALES'].includes(camp.objective));
+  // destination_type for the ad set, from the conversion location
+  function destinationFor(c, a) {
+    switch (c.conversionLocation) {
+      case 'website': return 'WEBSITE';
+      case 'app': return 'APP';
+      case 'calls': return 'PHONE_CALL';
+      case 'form': return 'ON_AD';
+      case 'ig_live': return 'INSTAGRAM_LIVE';
+      case 'profile': return goalFor(c, a) === 'VISIT_INSTAGRAM_PROFILE' ? 'INSTAGRAM_PROFILE' : 'FACEBOOK_PAGE';
+      case 'on_ad': return { video_views: 'ON_VIDEO', event_responses: 'ON_EVENT', reminders: 'ON_AD' }[c.engagementType] || 'ON_POST';
+      case 'messages': {
+        const apps = ['instagram', 'messenger', 'whatsapp'].filter(x => (c.messageApps || []).includes(x));
+        if (apps.length === 1) return { messenger: 'MESSENGER', instagram: 'INSTAGRAM_DIRECT', whatsapp: 'WHATSAPP' }[apps[0]];
+        if (apps.length === 3) return 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP';
+        if (apps.length === 2) return { 'instagram,messenger': 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER', 'instagram,whatsapp': 'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP', 'messenger,whatsapp': 'MESSAGING_MESSENGER_WHATSAPP' }[apps.join(',')];
+        return 'MESSENGER';
+      }
       default: return '';
     }
   }
-  const eventFor = (camp, as) => (as && as.event) || camp.event || (camp.objective === 'SALES' ? 'PURCHASE' : camp.objective === 'LEADS' ? 'LEAD' : '');
-  const needsPixel = (camp, as) => goalFor(camp, as) === 'OFFSITE_CONVERSIONS' || goalFor(camp, as) === 'VALUE';
-  const needsUrl = (camp, as) => !['LEAD_GENERATION', 'CONVERSATIONS', 'QUALITY_CALL', 'POST_ENGAGEMENT', 'THRUPLAY'].includes(goalFor(camp, as)) || camp.objective === 'TRAFFIC';
+  const BID_LABEL = k => (BID_STRATEGIES.find(b => b[0] === k) || [, k])[1];
   const digits = v => /^\d{5,20}$/.test(String(v || '').replace(/^(?:o|tp|v):/, ''));
 
   function validate(model, S, today) {
@@ -1842,7 +1966,18 @@
       else if (seenC[k]) err('Two campaigns are named "' + c.name + '". Ads Manager matches rows by name, so give each a different name.', ref);
       seenC[k] = true;
       if (!c.objective) err(c.name + ': pick an objective.', Object.assign({ field: 'objective' }, ref));
-      if (c.objective === 'APP_PROMOTION') err(c.name + ': app promotion campaigns need an app connected in Ads Manager. Build this one there.', ref);
+      const loc = c.conversionLocation;
+      if (c.objective && c.objective !== 'AWARENESS' && !(LOCATIONS_BY_OBJECTIVE[c.objective] || []).includes(loc)) err(c.name + ': pick a conversion location.', Object.assign({ field: 'conversionLocation' }, ref));
+      if (loc === 'messages' && !(c.messageApps || []).length) err(c.name + ': pick at least one message app (Messenger, Instagram or WhatsApp).', Object.assign({ field: 'messageApps' }, ref));
+      if (loc === 'messages' && (c.messageApps || []).includes('whatsapp')) warn(c.name + ': WhatsApp ads need a WhatsApp number connected to the Page.', Object.assign({ kind: 'manual' }, ref));
+      if (loc === 'calls' && !phoneOf(c, S)) err(c.name + ': call ads need a phone number. Add it here or under Account defaults.', Object.assign({ field: 'phone' }, ref));
+      else if (loc === 'calls' && !/^\+?\d{7,15}$/.test(phoneOf(c, S))) err(c.name + ': the phone number should have 7 to 15 digits, with the country code.', Object.assign({ field: 'phone' }, ref));
+      if (loc === 'app' && !S.appStoreUrl) err(c.name + ': app ads need the App Store or Google Play link of the app. Add it under Account defaults.', Object.assign({ field: 'appStoreUrl' }, ref));
+      else if (loc === 'app' && !isUrl(S.appStoreUrl)) err(c.name + ': the app store link is not a valid URL.', Object.assign({ field: 'appStoreUrl' }, ref));
+      if (loc === 'app' && !S.appId) warn(c.name + ': no app ID. Ads Manager may ask you to pick the app after import.', ref);
+      if (loc === 'on_ad' && ['event_responses', 'reminders'].includes(c.engagementType)) warn(c.name + ': ' + (c.engagementType === 'event_responses' ? 'event response ads promote a Facebook event' : 'reminder ads promote an upcoming event or live') + '. Pick it in Ads Manager after import.', Object.assign({ kind: 'manual' }, ref));
+      if (loc === 'ig_live') warn(c.name + ': Instagram live video ads run on a scheduled live. Pick it in Ads Manager after import.', Object.assign({ kind: 'manual' }, ref));
+      if (c.bidStrategy && c.bidStrategy !== 'LOWEST_COST_WITHOUT_CAP') warn(c.name + ': the import file leaves bid strategy at Highest volume, because Ads Manager rejects that column on import. Set ' + BID_LABEL(c.bidStrategy) + (c.bidAmount ? ' at ' + c.bidAmount : '') + ' after import.', Object.assign({ kind: 'manual' }, ref));
       if (!sets.length) err(c.name + ': no ad sets.', ref);
       if (c.budgetLevel === 'campaign') {
         if (!c.budget || !(+c.budget.amount > 0)) err(c.name + ': add a campaign budget, or switch to ad set budgets.', Object.assign({ field: 'budget' }, ref));
@@ -1852,8 +1987,6 @@
       }
       if (c.startDate && today && c.startDate < today) warn(c.name + ': the start date ' + c.startDate + ' has passed. Ads Manager will start it on import.', ref);
       if (c.endDate && c.startDate && c.endDate <= c.startDate) err(c.name + ': the end date is before the start date.', ref);
-      if (['COST_CAP', 'LOWEST_COST_WITH_BID_CAP'].includes(c.bidStrategy) && !(+c.bidAmount > 0)) err(c.name + ': ' + (c.bidStrategy === 'COST_CAP' ? 'a cost per result goal' : 'a bid cap') + ' needs an amount.', ref);
-      if (c.bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS') warn(c.name + ': set the ROAS goal amount in Ads Manager after import.', ref);
       const seenS = {};
       sets.forEach(a => {
         const r = { campaignId: c.id, adSetId: a.id };
@@ -1883,8 +2016,7 @@
           if (sub.some(l => l.radius && ((l.unit === 'mi' && l.radius < 15) || (l.unit === 'km' && l.radius < 25)))) err(nm + ': special ad categories need a radius of at least 15 miles (25 km).', r);
         }
         if (needsPixel(c, a) && !S.pixelId) err(nm + ': conversion ad sets need the pixel (dataset) ID. Add it under Account defaults.', Object.assign({ field: 'pixelId' }, r));
-        if (goalFor(c, a) === 'LEAD_GENERATION' && withAds && !(c.leadFormId || S.leadFormId)) err(nm + ': instant form ads need a lead form ID. Add it under Account defaults, or set the conversion location to Website.', Object.assign({ field: 'leadFormId' }, r));
-        if (['COST_CAP', 'LOWEST_COST_WITH_BID_CAP'].includes(a.bidStrategy) && !(+a.bidAmount > 0)) err(nm + ': the bid strategy needs an amount.', r);
+        if (c.conversionLocation === 'form' && withAds && !(c.leadFormId || S.leadFormId)) err(nm + ': instant form ads need a lead form ID. Add it under Account defaults, or set the conversion location to Website.', Object.assign({ field: 'leadFormId' }, r));
         if (a.interests.length || a.audiences.length || a.exclusions.length) {
           const parts = [];
           if (a.interests.length) parts.push(a.interests.length + ' interest' + (a.interests.length > 1 ? 's' : ''));
@@ -1901,14 +2033,15 @@
         ads.forEach(ad => {
           const ar = { campaignId: c.id, adSetId: a.id, adId: ad.id };
           const an = nm + ' > ' + (ad.name || 'ad');
-          const x = adEff(ad, S);
+          const x = adEff(ad, S, c);
           if (!norm(ad.name)) err(nm + ': an ad has no name.', ar);
           else if (seenA[key(ad.name)]) warn(nm + ': two ads are named "' + ad.name + '".', ar);
           seenA[key(ad.name)] = true;
           if (!norm(ad.primary)) err(an + ': add primary text.', Object.assign({ field: 'primary' }, ar));
-          if (!norm(ad.headline) && goalFor(c, a) !== 'POST_ENGAGEMENT') warn(an + ': no headline.', Object.assign({ field: 'headline' }, ar));
+          if (!norm(ad.headline) && !['on_ad', 'ig_live'].includes(loc)) warn(an + ': no headline.', Object.assign({ field: 'headline' }, ar));
+          if (loc === 'on_ad' && c.engagementType === 'video_views' && ad.format !== 'video' && !ad.videoId) warn(an + ': video views campaigns need a video ad. Set the format to Video.', Object.assign({ field: 'fmt' }, ar));
           if (needsUrl(c, a) && !x.url) err(an + ': add a website URL (here or under Account defaults).', Object.assign({ field: 'url' }, ar));
-          if (x.url && !isUrl(x.url)) err(an + ': "' + x.url + '" is not a valid URL.', Object.assign({ field: 'url' }, ar));
+          if (x.url && !isUrl(x.url) && (needsUrl(c, a) || loc === 'app' || ad.url)) err(an + ': "' + x.url + '" is not a valid URL.', Object.assign({ field: 'url' }, ar));
           if (x.urlTags && !/^[^?\s]+=[^\s]*$/.test(x.urlTags)) err(an + ': URL parameters should look like utm_source=facebook&utm_medium=paid.', Object.assign({ field: 'urlTags' }, ar));
           if (textLen(ad.primary) > LIMITS.primary) warn(an + ': primary text is ' + textLen(ad.primary) + ' characters. Feed shows about 125 before "See more".', Object.assign({ kind: 'length' }, ar));
           if (textLen(ad.headline) > LIMITS.headline) warn(an + ': headline is ' + textLen(ad.headline) + ' characters. Meta suggests 40 or fewer.', Object.assign({ kind: 'length' }, ar));
@@ -1952,6 +2085,9 @@
     ['pixel', 'Optimized Conversion Tracking Pixels', ['conversion tracking pixels', 'tracking pixels']],
     ['event', 'Optimized Event', ['conversion event']],
     ['billing', 'Billing Event'],
+    ['destination', 'Destination Type', ['conversion location']],
+    ['appId', 'Application ID', ['app id']],
+    ['storeUrl', 'Object Store URL', ['app store url']],
     ['countries', 'Countries'],
     ['regions', 'Regions'],
     ['cities', 'Cities'],
@@ -2009,7 +2145,8 @@
         buyingType: 'AUCTION',
         campaignDaily: c.budgetLevel === 'campaign' && c.budget && c.budget.period === 'daily' ? money(c.budget.amount) : '',
         campaignLifetime: c.budgetLevel === 'campaign' && c.budget && c.budget.period === 'lifetime' ? money(c.budget.amount) : '',
-        campaignBid: c.budgetLevel === 'campaign' ? c.bidStrategy || 'LOWEST_COST_WITHOUT_CAP' : '',
+        // left blank: Ads Manager rejects this column on import, and blank means Highest volume
+        campaignBid: '',
         campaignStart: usDate(c.startDate), campaignStop: usDate(c.endDate)
       };
       const sets = model.adSets.filter(a => a.campaignId === c.id);
@@ -2024,19 +2161,19 @@
         const regions = e.locations.filter(l => l.type === 'region');
         const cities = e.locations.filter(l => l.type === 'city');
         const pl = a.placements && a.placements.mode === 'manual' ? a.placements : null;
-        const bidOwn = c.budgetLevel === 'adset' ? (a.bidStrategy || c.bidStrategy || 'LOWEST_COST_WITHOUT_CAP') : '';
-        const bidAmt = (a.bidStrategy && a.bidAmount) || (['COST_CAP', 'LOWEST_COST_WITH_BID_CAP'].includes(c.bidStrategy) ? c.bidAmount : null);
         const sRow = Object.assign({}, cRow, {
           adSetName: a.name, adSetStatus: status,
           adSetStart: usDate(a.startDate || (c.budgetLevel === 'adset' ? c.startDate : '')), adSetStop: usDate(a.endDate || (c.budgetLevel === 'adset' ? c.endDate : '')),
           adSetDaily: c.budgetLevel === 'adset' && a.budget && a.budget.period === 'daily' ? money(a.budget.amount) : '',
           adSetLifetime: c.budgetLevel === 'adset' && a.budget && a.budget.period === 'lifetime' ? money(a.budget.amount) : '',
-          adSetBid: bidOwn,
-          bidAmount: bidAmt ? money(bidAmt) : '',
+          adSetBid: '', bidAmount: '',
           goal,
-          pixel: (goal === 'OFFSITE_CONVERSIONS' || goal === 'VALUE') && S.pixelId ? prefixed('tp', S.pixelId) : '',
-          event: (goal === 'OFFSITE_CONVERSIONS' || goal === 'VALUE') ? eventFor(c, a) : '',
+          pixel: needsPixel(c, a) && S.pixelId ? prefixed('tp', S.pixelId) : '',
+          event: needsPixel(c, a) ? eventFor(c, a) : '',
           billing: 'IMPRESSIONS',
+          destination: destinationFor(c, a),
+          appId: c.conversionLocation === 'app' ? S.appId || '' : '',
+          storeUrl: c.conversionLocation === 'app' ? S.appStoreUrl || '' : '',
           countries: countries.join(', '),
           regions: regions.map(l => l.name).join(', '),
           cities: cities.map(l => l.name + (l.region ? ', ' + l.region : (l.country && l.country !== 'US' ? ', ' + countryName(l.country) : ''))).join('; '),
@@ -2051,18 +2188,20 @@
         const ads = withAds ? model.ads.filter(x => x.adSetId === a.id) : [];
         if (!ads.length) { rows.push(sRow); return; }
         ads.forEach(ad => {
-          const x = adEff(ad, S);
+          const x = adEff(ad, S, c);
+          const loc = c.conversionLocation;
           rows.push(Object.assign({}, sRow, {
             adName: ad.name, adStatus: status,
-            creativeType: ad.videoId || ad.format === 'video' ? 'Video Page Post Ad' : 'Link Page Post Ad',
+            // a video ad without its video ID is rejected as "Missing video"; it goes in as a link ad and the video is added after import
+            creativeType: ad.videoId ? 'Video Page Post Ad' : 'Link Page Post Ad',
             pageId: prefixed('o', S.pageId),
             title: norm(ad.headline), body: normBlock(ad.primary), linkDescription: norm(ad.description),
             displayLink: ad.displayLink || '',
-            link: needsUrl(c, a) ? x.url : '',
+            link: needsUrl(c, a) || loc === 'app' ? x.url : loc === 'calls' && phoneOf(c, S) ? 'tel:' + phoneOf(c, S) : (!['form', 'messages'].includes(loc) && ad.url) ? ad.url : '',
             cta: x.cta,
             urlTags: x.urlTags,
             imageHash: ad.imageHash || '', videoId: ad.videoId ? prefixed('v', ad.videoId) : '',
-            leadForm: goalFor(c, a) === 'LEAD_GENERATION' ? (c.leadFormId || S.leadFormId || '') : ''
+            leadForm: loc === 'form' ? (c.leadFormId || S.leadFormId || '') : ''
           }));
         });
       });
@@ -2094,14 +2233,20 @@
         if (a.audiences.length) items.push({ kind: 'audiences', label: 'Custom and lookalike audiences', values: a.audiences.slice() });
         if (a.exclusions.length) items.push({ kind: 'exclusions', label: 'Exclude', values: a.exclusions.slice() });
         const e = setEff(a, S);
-        const radius = e.locations.filter(l => l.type === 'city' && l.radius && !(l.unit === 'mi' && l.radius === 25) && !(l.unit === 'km' && l.radius === 40));
-        if (radius.length) items.push({ kind: 'radius', label: 'City radius', values: radius.map(l => l.name + ': +' + l.radius + ' ' + l.unit) });
+        // Ads Manager may not match city names on import, which leaves the whole country: check every one
+        const cities = e.locations.filter(l => l.type === 'city');
+        if (cities.length) items.push({ kind: 'cities', label: 'Check cities', values: cities.map(l => locLabel(l)) });
         if (S.scope !== 'structure') {
           const ads = model.ads.filter(x => x.adSetId === a.id);
           const noMedia = ads.filter(x => !x.imageHash && !x.videoId);
+          // video ads without a video ID import as link ads, so they are listed here too
           if (noMedia.length) items.push({ kind: 'media', label: 'Add creative', values: noMedia.map(x => x.name + (x.format ? ' (' + x.format + ')' : '') + (x.media ? ': ' + norm(x.media).slice(0, 120) : '')) });
         }
-        if (c.bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS') items.push({ kind: 'bid', label: 'ROAS goal', values: ['Set the minimum ROAS on the ' + (c.budgetLevel === 'campaign' ? 'campaign' : 'ad set')] });
+        if (c.bidStrategy && c.bidStrategy !== 'LOWEST_COST_WITHOUT_CAP') items.push({ kind: 'bid', label: 'Bid strategy', values: [BID_LABEL(c.bidStrategy) + (c.bidAmount ? ': ' + c.bidAmount : '') + ' on the ' + (c.budgetLevel === 'campaign' ? 'campaign' : 'ad set')] });
+        if (c.conversionLocation === 'on_ad' && c.engagementType === 'event_responses') items.push({ kind: 'event', label: 'Pick the event', values: ['Choose the Facebook event each ad promotes'] });
+        if (c.conversionLocation === 'on_ad' && c.engagementType === 'reminders') items.push({ kind: 'event', label: 'Pick the event', values: ['Choose the upcoming event or live for reminders'] });
+        if (c.conversionLocation === 'ig_live') items.push({ kind: 'event', label: 'Pick the live', values: ['Choose the scheduled Instagram live video'] });
+        if (c.conversionLocation === 'messages' && (c.messageApps || []).includes('whatsapp')) items.push({ kind: 'whatsapp', label: 'WhatsApp', values: ['Check the WhatsApp number connected to the Page'] });
         if (items.length) out.push({ campaign: c.name, adSet: a.name, adSetId: a.id, items });
       });
     });
@@ -2120,12 +2265,12 @@
   const api = {
     norm, normBlock, key, labelKey, sim, textLen, nid, cleanCopy, findUrl,
     htmlToBlocks, textToBlocks, csvToRows, rowsToBlocks, blocksToText,
-    fieldOf, platformOf, parseBudget, parseDate, parseSchedule, parseObjective, parseConversionLocation, parseEvent, parseGoal,
+    fieldOf, platformOf, parseBudget, parseDate, parseSchedule, parseObjective, parseConversionLocation, parseEngagementType, parseMessageApps, parseEvent, parseGoal,
     parseBidStrategy, parseSpecial, parseCta, parseFormat, parseAge, parseGender, parsePlacements, placementsText, parseLocations, parseAudience,
     splitList, locLabel, locCountry, countryName, findCountry, COUNTRIES,
     parseBlocks, buildModel, parseBlocksToModel, parseHTML, parseText, newResult, newNode, putField, deriveName,
-    OBJECTIVES, objectiveLabel, EVENTS, GOALS, GOALS_BY_OBJECTIVE, BID_STRATEGIES, SPECIAL, CTAS, ctaLabel, POSITIONS, PLATFORM_LABEL, LIMITS,
-    goalFor, eventFor, needsPixel, needsUrl, setEff, adEff, isUrl,
+    OBJECTIVES, objectiveLabel, EVENTS, GOALS, goalsFor, goalLabel, LOCATIONS, LOCATIONS_BY_OBJECTIVE, DEFAULT_LOCATION, locationLabel, ENGAGEMENT_TYPES, MESSAGE_APPS, BID_STRATEGIES, SPECIAL, CTAS, ctaLabel, POSITIONS, PLATFORM_LABEL, LIMITS,
+    goalFor, eventFor, needsPixel, needsUrl, destinationFor, defaultCta, setEff, adEff, isUrl,
     validate, COLUMNS, mapTemplate, exportTable, toCSV, toTSV, checklist, checklistText
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

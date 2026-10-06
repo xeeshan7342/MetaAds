@@ -23,7 +23,7 @@
   // Opened as a Claude artifact on claude.ai: AI reading runs on the viewer's plan and files save through Claude
   const inClaude = !!(window.claude && typeof window.claude.use === 'function');
 
-  const DEFAULTS = { pageId: '', pixelId: '', leadFormId: '', url: '', urlTags: '', cta: 'LEARN_MORE', locations: [], ageMin: 18, ageMax: 65, gender: 'all', status: 'PAUSED', scope: 'ads' };
+  const DEFAULTS = { pageId: '', pixelId: '', leadFormId: '', url: '', urlTags: '', cta: 'LEARN_MORE', locations: [], ageMin: 18, ageMax: 65, gender: 'all', status: 'PAUSED', scope: 'ads', phone: '', appId: '', appStoreUrl: '' };
   const S = clone(DEFAULTS);
   const setS = obj => { Object.keys(S).forEach(k => delete S[k]); Object.assign(S, clone(DEFAULTS), clone(obj)); };
   const EMPTY_MODEL = () => ({ name: '', title: '', campaigns: [], adSets: [], ads: [], notes: [], skipped: [], detected: {} });
@@ -70,6 +70,9 @@
     bindText('leadFormId', 'leadFormId');
     bindText('siteUrl', 'url');
     bindText('urlTags', 'urlTags', v => v.trim().replace(/^\?/, ''));
+    bindText('phone', 'phone');
+    bindText('appStoreUrl', 'appStoreUrl');
+    bindText('appId', 'appId');
     $('#ctaSel').addEventListener('change', e => { S.cta = e.target.value; rerenderOpenSets(); refresh(); });
     sel.addEventListener('change', e => {
       const code = e.target.value; if (!code) return;
@@ -142,6 +145,7 @@
   function syncSettingsUI() {
     $('#pageId').value = S.pageId; $('#pixelId').value = S.pixelId; $('#leadFormId').value = S.leadFormId;
     $('#siteUrl').value = S.url; $('#urlTags').value = S.urlTags; $('#ctaSel').value = S.cta;
+    $('#phone').value = S.phone || ''; $('#appStoreUrl').value = S.appStoreUrl || ''; $('#appId').value = S.appId || '';
     $('#ageMin').value = S.ageMin; $('#ageMax').value = S.ageMax;
     const g = $('input[name="gender"][value="' + S.gender + '"]'); if (g) g.checked = true;
     const st = $('input[name="status"][value="' + S.status + '"]'); if (st) st.checked = true;
@@ -159,6 +163,9 @@
     if (d.leadFormId) { S.leadFormId = d.leadFormId; picked.push('lead form ID'); }
     if (d.urlTags) { S.urlTags = d.urlTags; picked.push('URL parameters'); }
     if (d.cta) { S.cta = d.cta; picked.push('call to action'); }
+    if (d.phone) { S.phone = d.phone; picked.push('phone number'); }
+    if (d.appStoreUrl) { S.appStoreUrl = d.appStoreUrl; picked.push('app store link'); }
+    if (d.appId) { S.appId = d.appId; picked.push('app ID'); }
     if (d.locations && d.locations.length) { S.locations = clone(d.locations); picked.push('locations'); }
     if (d.ageMin) { S.ageMin = d.ageMin; S.ageMax = d.ageMax || 65; picked.push('age'); }
     if (d.gender) { S.gender = d.gender; picked.push('gender'); }
@@ -322,19 +329,13 @@
   }
 
   /* ---------------- tree ---------------- */
-  const OBJ_NEEDS_LOC = new Set(['LEADS', 'SALES', 'ENGAGEMENT']);
-  const LOCATIONS_FOR = {
-    LEADS: [['website', 'Website'], ['form', 'Instant form'], ['messages', 'Messages'], ['calls', 'Calls']],
-    SALES: [['website', 'Website'], ['messages', 'Messages']],
-    ENGAGEMENT: [['', 'On your ad'], ['messages', 'Messages']]
-  };
   const budgetHint = b => b && b.period === 'daily' && +b.amount > 0 ? 'About ' + money(b.amount * 30.4) + ' a month' : b && b.period === 'lifetime' ? 'For the whole run' : 'Per day';
 
   function campHTML(c) {
     const sets = setsOf(c);
     const goal = E.goalFor(c, null);
     const bud = c.budget || { amount: '', period: 'daily' };
-    const locs = LOCATIONS_FOR[c.objective];
+    const locs = E.LOCATIONS_BY_OBJECTIVE[c.objective] || [];
     return '<article class="camp" data-cid="' + esc(c.id) + '">' +
       '<div class="camp-head">' +
         '<div class="field grow"><label class="lbl" for="cn-' + c.id + '">Campaign</label><input id="cn-' + c.id + '" class="camp-name" data-cf="name" value="' + esc(c.name) + '" autocomplete="off"></div>' +
@@ -348,9 +349,12 @@
         '<button type="button" class="btn btn-ghost btn-sm danger camp-x" data-act="del-camp">Remove</button>' +
       '</div>' +
       '<div class="camp-grid">' +
-        (locs ? '<div class="field"><label class="lbl" for="cloc-' + c.id + '">Conversion location</label><select id="cloc-' + c.id + '" data-cf="conversionLocation">' + locs.map(([v, l]) => opt(v, l, c.conversionLocation || '')).join('') + '</select></div>' : '') +
-        (goal === 'OFFSITE_CONVERSIONS' ? '<div class="field"><label class="lbl" for="cev-' + c.id + '">Conversion event</label><select id="cev-' + c.id + '" data-cf="event">' + opt('', 'Default (' + (E.EVENTS.find(e => e[0] === E.eventFor(c, null)) || [, ''])[1] + ')', c.event || '') + E.EVENTS.map(e => opt(e[0], e[1], c.event)).join('') + '</select></div>' : '') +
-        (goal === 'LEAD_GENERATION' ? '<div class="field"><label class="lbl" for="clf-' + c.id + '">Lead form ID</label><input id="clf-' + c.id + '" data-cf="leadFormId" inputmode="numeric" value="' + esc(c.leadFormId || '') + '" placeholder="' + esc(S.leadFormId || 'Account default') + '" spellcheck="false"></div>' : '') +
+        (locs.length ? '<div class="field"><label class="lbl" for="cloc-' + c.id + '">Conversion location</label><select id="cloc-' + c.id + '" data-cf="conversionLocation">' + (locs.includes(c.conversionLocation) ? '' : opt('', 'Pick a location', '')) + locs.map(v => opt(v, E.locationLabel(v), c.conversionLocation || '')).join('') + '</select></div>' : '') +
+        (c.conversionLocation === 'on_ad' ? '<div class="field"><label class="lbl" for="cet-' + c.id + '">Engagement type</label><select id="cet-' + c.id + '" data-cf="engagementType">' + E.ENGAGEMENT_TYPES.map(([v, l]) => opt(v, l, c.engagementType || 'interactions')).join('') + '</select></div>' : '') +
+        (c.conversionLocation === 'messages' ? '<div class="field"><span class="lbl" id="capps-' + c.id + '">Message apps</span><div class="app-checks" role="group" aria-labelledby="capps-' + c.id + '">' + E.MESSAGE_APPS.map(([v, l]) => '<label class="check"><input type="checkbox" id="capp-' + v + '-' + c.id + '" data-capp="' + v + '"' + ((c.messageApps || []).includes(v) ? ' checked' : '') + '><span>' + esc(l) + '</span></label>').join('') + '</div></div>' : '') +
+        (c.conversionLocation === 'calls' ? '<div class="field"><label class="lbl" for="cph-' + c.id + '">Phone number</label><input id="cph-' + c.id + '" type="tel" data-cf="phone" value="' + esc(c.phone || '') + '" placeholder="' + esc(S.phone || '+1 214 555 0100') + '"></div>' : '') +
+        (E.needsPixel(c, null) ? '<div class="field"><label class="lbl" for="cev-' + c.id + '">Conversion event</label><select id="cev-' + c.id + '" data-cf="event">' + opt('', 'Default (' + (E.EVENTS.find(e => e[0] === E.eventFor(c, null)) || [, ''])[1] + ')', c.event || '') + E.EVENTS.map(e => opt(e[0], e[1], c.event)).join('') + '</select></div>' : '') +
+        (c.conversionLocation === 'form' ? '<div class="field"><label class="lbl" for="clf-' + c.id + '">Lead form ID</label><input id="clf-' + c.id + '" data-cf="leadFormId" inputmode="numeric" value="' + esc(c.leadFormId || '') + '" placeholder="' + esc(S.leadFormId || 'Account default') + '" spellcheck="false"></div>' : '') +
         '<div class="field"><label class="lbl" for="csp-' + c.id + '">Special ad category</label><select id="csp-' + c.id + '" data-cf="special">' + E.SPECIAL.map(s => opt(s[0], s[1], c.special || 'NONE')).join('') + '</select></div>' +
         '<div class="field"><label class="lbl" for="cbs-' + c.id + '">Bid strategy</label><select id="cbs-' + c.id + '" data-cf="bidStrategy">' + E.BID_STRATEGIES.map(b => opt(b[0], b[1], c.bidStrategy)).join('') + '</select></div>' +
         (['COST_CAP', 'LOWEST_COST_WITH_BID_CAP'].includes(c.bidStrategy) ? '<div class="field"><label class="lbl" for="cba-' + c.id + '">' + (c.bidStrategy === 'COST_CAP' ? 'Cost per result goal' : 'Bid cap') + '</label><input id="cba-' + c.id + '" type="number" min="0" step="0.01" inputmode="decimal" data-cf="bidAmount" value="' + esc(c.bidAmount == null ? '' : c.bidAmount) + '"></div>' : '') +
@@ -385,7 +389,7 @@
       '<span class="ag-counts mono" data-counts></span><span class="pill-sm ok" data-state>Ready</span></summary>';
     if (!isOpen) return '<details class="ag" data-sid="' + esc(a.id) + '">' + head + '</details>';
     c = c || findC(a.campaignId);
-    const goals = E.GOALS_BY_OBJECTIVE[c.objective] || [];
+    const goals = E.goalsFor(c);
     const defGoal = E.goalFor(c, Object.assign({}, a, { goal: '' }));
     const bud = a.budget || { amount: '', period: 'daily' };
     const ads = adsOf(a);
@@ -395,7 +399,7 @@
         '<div class="field"><label class="lbl" for="sn-' + a.id + '">Ad set name</label><input id="sn-' + a.id + '" data-f="name" value="' + esc(a.name) + '" autocomplete="off"></div>' +
         (c.budgetLevel === 'adset' ? '<div class="field"><label class="lbl" for="sb-' + a.id + '">Ad set budget</label><div class="budget-row"><input id="sb-' + a.id + '" type="number" min="0" step="0.01" inputmode="decimal" data-f="budgetAmount" value="' + esc(bud.amount) + '" placeholder="e.g. 20">' +
           '<select data-f="budgetPeriod" aria-label="Budget period">' + opt('daily', 'Daily', bud.period) + opt('lifetime', 'Lifetime', bud.period) + '</select></div></div>' : '') +
-        (goals.length ? '<div class="field"><label class="lbl" for="sgoal-' + a.id + '">Performance goal</label><select id="sgoal-' + a.id + '" data-f="goal">' + opt('', 'Default (' + (E.GOALS[defGoal] || defGoal) + ')', a.goal || '') + goals.map(g => opt(g, E.GOALS[g] || g, a.goal)).join('') + '</select></div>' : '') +
+        (goals.length ? '<div class="field"><label class="lbl" for="sgoal-' + a.id + '">Performance goal</label><select id="sgoal-' + a.id + '" data-f="goal">' + opt('', 'Default (' + E.goalLabel(defGoal, c) + ')', goals.includes(a.goal) ? a.goal : '') + goals.map(g => opt(g, E.goalLabel(g, c), a.goal)).join('') + '</select></div>' : '') +
         '<div class="field"><label class="lbl" for="sst-' + a.id + '">Start <span class="mono">optional</span></label><input id="sst-' + a.id + '" type="date" data-f="startDate" value="' + esc(a.startDate) + '"></div>' +
         '<div class="field"><label class="lbl" for="send-' + a.id + '">End <span class="mono">optional</span></label><input id="send-' + a.id + '" type="date" data-f="endDate" value="' + esc(a.endDate) + '"></div>' +
       '</div>' +
@@ -430,7 +434,7 @@
   function adHTML(ad, a, c) {
     const id = ad.id;
     const fmt = ad.format || '';
-    const defCta = E.ctaLabel(S.cta);
+    const defCta = E.ctaLabel(E.defaultCta(c, S));
     return '<div class="ad" data-aid="' + esc(id) + '">' +
       '<div class="ad-fields">' +
         '<div class="ad-top"><input id="an-' + id + '" data-af="name" value="' + esc(ad.name) + '" aria-label="Ad name" autocomplete="off">' +
@@ -451,12 +455,14 @@
         '</div>' +
         (ad.media ? '<div class="media-note">Creative in the doc: ' + esc(ad.media) + '</div>' : '') +
       '</div>' +
-      '<div><div class="feed-label">Feed preview</div><div class="feed" data-feed>' + feedInner(ad) + '</div></div>' +
+      '<div><div class="feed-label">Feed preview</div><div class="feed" data-feed>' + feedInner(ad, c) + '</div></div>' +
     '</div>';
   }
   function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return 'example.com'; } }
   const pageName = () => state.profileName || (state.model.title || '').replace(/\s*[–—|:-]\s*.*$/, '').trim() || 'Your Page';
-  function feedInner(ad) {
+  function feedInner(ad, c) {
+    c = c || findC((findSet(ad.adSetId) || {}).campaignId);
+    const x = E.adEff(ad, S, c);
     const text = String(ad.primary || '');
     const cut = Array.from(text);
     const shown = cut.length > E.LIMITS.primary ? cut.slice(0, E.LIMITS.primary).join('').replace(/\s+\S*$/, '') : text;
@@ -465,8 +471,8 @@
     return '<div class="feed-head"><div class="feed-av">' + esc(name.charAt(0).toUpperCase() || 'P') + '</div><div><div class="feed-name">' + esc(name) + '</div><div class="feed-sp">Sponsored</div></div></div>' +
       '<div class="feed-text">' + (text ? esc(shown) + (shown !== text ? '<span class="more">… See more</span>' : '') : '<span class="feed-sp">Add primary text to preview</span>') + '</div>' +
       '<div class="feed-media ' + fmt + '">' + esc(fmt === 'carousel' ? 'Carousel' : fmt === 'video' ? 'Video' : 'Image') + '</div>' +
-      '<div class="feed-bar"><div style="min-width:0"><div class="feed-dom">' + esc(hostOf(ad.url || S.url)) + '</div><div class="feed-hl">' + esc(ad.headline || '') + '</div><div class="feed-ds">' + esc(ad.description || '') + '</div></div>' +
-      (ad.cta === 'NO_BUTTON' || (!ad.cta && S.cta === 'NO_BUTTON') ? '' : '<span class="feed-cta">' + esc(E.ctaLabel(ad.cta || S.cta)) + '</span>') + '</div>';
+      '<div class="feed-bar"><div style="min-width:0"><div class="feed-dom">' + esc(/^https?:/.test(x.url) ? hostOf(x.url) : c && c.conversionLocation === 'messages' ? 'Message us' : c && c.conversionLocation === 'calls' ? 'Call us' : hostOf(S.url)) + '</div><div class="feed-hl">' + esc(ad.headline || '') + '</div><div class="feed-ds">' + esc(ad.description || '') + '</div></div>' +
+      (x.cta === 'NO_BUTTON' ? '' : '<span class="feed-cta">' + esc(E.ctaLabel(x.cta)) + '</span>') + '</div>';
   }
   function updateFeed(ad) { const el = $('[data-aid="' + ad.id + '"] [data-feed]'); if (el) el.innerHTML = feedInner(ad); }
   function updateAllFeeds() { state.model.ads.forEach(updateFeed); }
@@ -509,6 +515,7 @@
         else if (f === 'budgetAmount') { const n = numOrNull(t.value); c.budget = n == null ? null : { amount: n, period: (c.budget && c.budget.period) || 'daily', basis: (c.budget && c.budget.period) || 'daily' }; const h = $('[data-bhint]', cEl); if (h) h.textContent = budgetHint(c.budget); }
         else if (f === 'bidAmount') c.bidAmount = numOrNull(t.value);
         else if (f === 'leadFormId') c.leadFormId = t.value.trim();
+        else if (f === 'phone') c.phone = t.value.trim();
         else if (f === 'startDate' || f === 'endDate') c[f] = t.value;
         else return;
         state.dirty = true; refresh(); return;
@@ -542,15 +549,26 @@
       state.dirty = true;
       if (t.dataset.cf && cEl && !sEl) {
         const c = findC(cEl.dataset.cid); const f = t.dataset.cf;
-        if (f === 'objective') { c.objective = t.value || null; if (!LOCATIONS_FOR[c.objective] || !LOCATIONS_FOR[c.objective].some(x => x[0] === (c.conversionLocation || ''))) c.conversionLocation = LOCATIONS_FOR[c.objective] ? LOCATIONS_FOR[c.objective][0][0] || null : null; setsOf(c).forEach(a => { a.goal = ''; }); }
+        if (f === 'objective') {
+          c.objective = t.value || null;
+          if (!(E.LOCATIONS_BY_OBJECTIVE[c.objective] || []).includes(c.conversionLocation)) setLocation(c, E.DEFAULT_LOCATION[c.objective] || null);
+          setsOf(c).forEach(a => { a.goal = ''; });
+        }
         else if (f === 'budgetLevel') switchBudgetLevel(c, t.value);
         else if (f === 'budgetPeriod') { c.budget = Object.assign({ amount: '' }, c.budget || {}, { period: t.value, basis: t.value }); }
-        else if (f === 'conversionLocation') { c.conversionLocation = t.value || null; setsOf(c).forEach(a => { a.goal = ''; }); }
+        else if (f === 'conversionLocation') { setLocation(c, t.value || null); setsOf(c).forEach(a => { a.goal = ''; }); }
+        else if (f === 'engagementType') { c.engagementType = t.value; setsOf(c).forEach(a => { a.goal = ''; }); }
         else if (f === 'event') { c.event = t.value; setsOf(c).forEach(a => { a.event = ''; }); }
         else if (f === 'special') c.special = t.value;
         else if (f === 'bidStrategy') { c.bidStrategy = t.value; if (!['COST_CAP', 'LOWEST_COST_WITH_BID_CAP'].includes(t.value)) c.bidAmount = null; }
         else return;
         rerenderCamp(c); refresh();
+        return;
+      }
+      if (t.dataset.capp && cEl) {
+        const c = findC(cEl.dataset.cid);
+        c.messageApps = $$('[data-capp]', cEl).filter(x => x.checked).map(x => x.dataset.capp);
+        rerenderOpenSets(); refresh();
         return;
       }
       if (t.dataset.af && aEl) {
@@ -647,7 +665,7 @@
 
     $('#addCamp').addEventListener('click', () => {
       const m = state.model;
-      const c = { id: E.nid('c'), name: 'New campaign', objective: null, conversionLocation: null, special: 'NONE', budget: null, budgetLevel: 'campaign', bidStrategy: 'LOWEST_COST_WITHOUT_CAP', bidAmount: null, startDate: '', endDate: '', event: '', leadFormId: '' };
+      const c = { id: E.nid('c'), name: 'New campaign', objective: null, conversionLocation: null, engagementType: '', messageApps: [], special: 'NONE', budget: null, budgetLevel: 'campaign', bidStrategy: 'LOWEST_COST_WITHOUT_CAP', bidAmount: null, startDate: '', endDate: '', event: '', leadFormId: '' };
       m.campaigns.push(c);
       const a = { id: E.nid('s'), campaignId: c.id, name: 'Ad set 1', budget: null, startDate: '', endDate: '', ageMin: null, ageMax: null, gender: '', locations: [], interests: [], audiences: [], exclusions: [], placements: { mode: 'advantage' }, goal: '', event: '', bidStrategy: '', bidAmount: null, notes: [] };
       m.adSets.push(a);
@@ -663,6 +681,12 @@
       renderTree(); refresh();
     });
     $('#reportPanel').addEventListener('change', e => { const s = e.target.closest('select[data-rep]'); if (s && s.value) onReportChoice(s); });
+  }
+  // A new conversion location brings its own defaults: Interactions for "On your ad", Messenger and Instagram for messages
+  function setLocation(c, loc) {
+    c.conversionLocation = loc;
+    c.engagementType = loc === 'on_ad' ? (c.engagementType || 'interactions') : '';
+    c.messageApps = loc === 'messages' ? ((c.messageApps || []).length ? c.messageApps : ['messenger', 'instagram']) : [];
   }
   // Campaign budget <-> ad set budgets: the money moves with the switch
   function switchBudgetLevel(c, level) {
@@ -692,6 +716,8 @@
     exportCache = null;
     const has = !!state.source || m.campaigns.length > 0;
 
+    $('#phoneField').hidden = !m.campaigns.some(c => c.conversionLocation === 'calls') && !S.phone;
+    $('#appFields').hidden = !m.campaigns.some(c => c.conversionLocation === 'app') && !S.appStoreUrl;
     $('#stC').textContent = m.campaigns.length;
     $('#stS').textContent = m.adSets.length;
     $('#stA').textContent = m.ads.length;
@@ -751,6 +777,10 @@
     }
     if (er.campaignId) {
       if (f === 'objective') return $('#cobj-' + er.campaignId);
+      if (f === 'conversionLocation') return $('#cloc-' + er.campaignId);
+      if (f === 'messageApps') return $('#capp-messenger-' + er.campaignId);
+      if (f === 'phone') return $('#cph-' + er.campaignId) || $('#phone');
+      if (f === 'appStoreUrl') return $('#appStoreUrl');
       if (f === 'budget') return $('#cbud-' + er.campaignId);
       if (f === 'endDate') return $('#cend-' + er.campaignId);
       return null;
