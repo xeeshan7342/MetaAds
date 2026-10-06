@@ -86,7 +86,7 @@ The import file cannot carry everything. Interests, custom audiences, lookalikes
 4. Work through the after-import list.
 5. Check one ad set's locations and one ad's preview, then publish.
 
-If Ads Manager says **Not allowed to publish imported ads**, the restriction is on the ad account, not in the file: some accounts cannot publish campaigns that came in through bulk import. Click **Fix errors** to read Meta's full reason. The ad set error that comes with it ("there's an error with the campaign it's associated with") clears once the campaign can publish. Until then, build the campaign by hand in Ads Manager with the values from the tool.
+If Ads Manager says **Not allowed to publish imported ads** (error #3738001), the restriction is on the ad account, not in the file. Meta allows publishing imported ads only after the account has run ads that follow its policies for several weeks, so a new account cannot publish an import yet. The ad set error that comes with it ("there's an error with the campaign it's associated with") is only a knock-on from the campaign. Until the account qualifies, build campaigns by hand in Ads Manager with the values from the tool. Ads run that way also count toward the weeks Meta asks for.
 
 Call ads take the phone number from Account defaults (or the campaign), and app ads take the App Store or Google Play link and app ID. Those fields appear once a campaign needs them.
 
