@@ -473,7 +473,7 @@
   const DEFAULT_LOCATION = { TRAFFIC: 'website', ENGAGEMENT: 'on_ad', LEADS: 'website', APP_PROMOTION: 'app', SALES: 'website' };
   const locationLabel = k => (LOCATIONS.find(l => l[0] === k) || [, ''])[1];
   // "On your ad" engagement types
-  const ENGAGEMENT_TYPES = [['interactions', 'Interactions'], ['video_views', 'Video views'], ['event_responses', 'Event responses'], ['reminders', 'Reminders set']];
+  const ENGAGEMENT_TYPES = [['interactions', 'Post engagement'], ['video_views', 'Video views'], ['event_responses', 'Event responses'], ['reminders', 'Reminders set']];
   const MESSAGE_APPS = [['messenger', 'Messenger'], ['instagram', 'Instagram'], ['whatsapp', 'WhatsApp']];
 
   function parseConversionLocation(v) {

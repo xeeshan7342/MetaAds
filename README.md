@@ -27,7 +27,7 @@ Word (.docx), Excel (.xlsx, every visible tab), CSV and TSV, text and Markdown. 
 - Every objective with the conversion locations Ads Manager offers for it:
   - **Awareness:** reach, impressions, ad recall lift, ThruPlay and 2-second video plays.
   - **Traffic:** website, app, message destinations, Instagram or Facebook profile, calls.
-  - **Engagement:** on your ad (interactions, video views, event responses, reminders set), message destinations (Messenger, Instagram, WhatsApp), Instagram live video, calls, website, app, Instagram or Facebook (Page or profile visits).
+  - **Engagement:** on your ad (post engagement, video views, event responses, reminders set), message destinations (Messenger, Instagram, WhatsApp), Instagram live video, calls, website, app, Instagram or Facebook (Page or profile visits).
   - **Leads:** website, instant forms, message destinations, calls, app.
   - **App promotion:** app installs and app events.
   - **Sales:** website, app, message destinations, calls.
