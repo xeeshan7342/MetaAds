@@ -35,9 +35,12 @@ Word (.docx), Excel (.xlsx, every visible tab), CSV and TSV, text and Markdown. 
   Write it the way you would say it (`Engagement – Video views`, `Engagement – Messages on WhatsApp`, `Leads (Instant Form)`, `Traffic to Instagram profile`, `App installs`). Each ad set's performance goal list matches what Ads Manager shows for that choice, in the same wording.
 - Campaign settings: budgets (daily, monthly, weekly or lifetime, at campaign or ad set level, in any currency format), special ad category, bid strategy (`Cost cap $25`), conversion event, start and end dates, Page, pixel and lead form IDs, and UTM parameters.
 - Shared targeting written once for the whole account, or for one campaign, applies to every ad set that does not set its own.
+- Docs written as settings tables, one section per level (`Campaign level settings`, `Ad set level settings`, `Ad level settings`). A `Level | Name | Purpose` table names the campaign, ad set and ads, and the settings sections below it fill them in. Placement tables with a Keep/Remove column keep only the rows marked Keep, and lines such as `Facebook only. Instagram and Audience Network unchecked` leave the unchecked platforms out.
+- Ads built from an existing Page or Instagram post (`Ad setup: Use existing post`, `ExistingPost` in the ad name). They need no copy in the doc.
+- Blanks such as `[Client Page name]` or `[date]` are listed once at the top instead of being read as values, and a note in brackets is treated as advice: `None (select one only if the Page covers housing…)` means no special ad category.
 - Answers copied from ChatGPT or Claude (icons, bold labels, `---` rules).
 
-Sections for Google, Microsoft, LinkedIn, TikTok and other platforms are skipped as one unit. Keyword lists, notes, KPIs and testing plans are not imported. Every line the tool could not place is listed in the import report with the reason.
+Sections for Google, Microsoft, LinkedIn, TikTok and other platforms are skipped as one unit. Keyword lists, notes, KPIs, metrics, optimisation plans, testing plans and launch checklists are not imported. Every line the tool could not place is listed in the import report with the reason.
 
 ## The import report and memory
 
@@ -71,6 +74,8 @@ The import file cannot carry everything. Interests, custom audiences, lookalikes
 - **Bid strategy.** Ads Manager rejected the bid strategy column on import, so the file leaves it at the default (Highest volume). A cost cap, bid cap or ROAS goal from the doc goes on the list with its amount.
 - **Cities.** Ads Manager can fail to match a city name, and then the ad set keeps only the country. Every city goes on the list so you can check it.
 - **Videos.** A video ad without a video ID is rejected as "Missing video", so it imports as a link ad and the video goes on the list.
+- **Existing posts.** The import file cannot point an ad at a Page post, so these ads are left out of the file (their ad set still imports) and listed by name, with what the doc says about each post. In Ads Manager, add the ad, choose **Use existing post** under Ad setup and pick the post.
+- **Settings with no import column.** Advantage+ audience, Advantage+ creative enhancements, multi-advertiser ads, text translation, brand safety, A/B tests and similar settings from the doc are listed so you can set them by hand.
 - **Events and lives.** Event response, reminder and Instagram live ads need the event or live picked in Ads Manager. The tool keeps these on an **After import** list per ad set, with every interest and audience name from the doc, so nothing gets lost. Download or copy it, and work through it before turning ads on. If you already have an image hash or video ID from the media library, paste it on the ad and it goes into the file.
 
 ## Importing into Ads Manager
@@ -80,6 +85,8 @@ The import file cannot carry everything. Interests, custom audiences, lookalikes
 3. Fix or skip flagged rows, then **Import**. Everything arrives paused unless you chose Active.
 4. Work through the after-import list.
 5. Check one ad set's locations and one ad's preview, then publish.
+
+If Ads Manager says **Not allowed to publish imported ads**, the restriction is on the ad account, not in the file: some accounts cannot publish campaigns that came in through bulk import. Click **Fix errors** to read Meta's full reason. The ad set error that comes with it ("there's an error with the campaign it's associated with") clears once the campaign can publish. Until then, build the campaign by hand in Ads Manager with the values from the tool.
 
 Call ads take the phone number from Account defaults (or the campaign), and app ads take the App Store or Google Play link and app ID. Those fields appear once a campaign needs them.
 

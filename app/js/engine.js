@@ -210,7 +210,7 @@
   /* ---------- 2. Vocabulary ---------- */
 
   // Words in front of a label that do not change what it is: "Suggested Headlines", "Meta Primary Text"
-  const LABEL_PREFIX = /^(?:(?:sample|suggested|proposed|recommended|example|draft|final|meta|facebook|fb|ig|instagram|new|our|ad|ads)\s+)+/;
+  const LABEL_PREFIX = /^(?:(?:sample|suggested|proposed|recommended|example|draft|final|optional|meta|facebook|fb|ig|instagram|new|our|ad|ads)\s+)+/;
   const labelCore = s => labelKey(s).replace(/\b(?:options?|variations?|versions?|variants?|ideas?|examples?|alternatives?|copy options?)\b/g, ' ').replace(/\s+/g, ' ').trim();
 
   // Field labels: what a "Label: value" line, a bold label, a heading or a table header sets.
@@ -245,7 +245,7 @@
     ['audiences', /^(?:custom\s+audiences?|retargeting(?:\s+audiences?)?|remarketing(?:\s+audiences?)?|warm\s+audiences?|audience\s+source|source\s+audiences?|seed\s+audiences?|lookalikes?(?:\s+audiences?)?|lals?|llas?)$/],
     ['exclusions', /^(?:exclu(?:sions?|de|ded)(?:\s+audiences?)?|audience\s+exclusions?|excluded\s+audiences?)$/],
     ['audience', /^(?:(?:target\s+)?audience(?:\s+(?:focus|description|details|definition|profile|summary|type|targeting))?|targeting(?:\s+(?:details|summary))?|persona)$/],
-    ['placements', /^(?:placements?|placement\s+(?:strategy|type|settings)|platforms?)$/],
+    ['placements', /^(?:placements?|placement\s+(?:strategy|type|settings)|platforms?|advantage\s+placements?)$/],
     ['languages', /^(?:languages?|locales?)$/],
     ['devices', /^devices?$/],
     ['primary', /^(?:primary\s+texts?|primary\s+copy|body(?:\s+(?:copy|text))?|copy|texts?|main\s+text|captions?|post\s+(?:copy|text)|ad\s+copy)$/],
@@ -255,10 +255,19 @@
     ['url', /^(?:(?:website|destination|landing\s+page|final|link|lp)\s+(?:url|link)|urls?|website|landing\s+pages?|link|lp)$/],
     ['displayLink', /^display\s+(?:link|url)$/],
     ['urlTags', /^(?:url\s+(?:parameters|tags|params)|utms?|utm\s+(?:parameters|tags|codes?|params)|tracking(?:\s+(?:parameters|template))?)$/],
-    ['format', /^(?:(?:creative\s+)?format|creative\s+type|media\s+type)$/],
+    ['format', /^(?:(?:creative\s+)?format|creative\s+type|media\s+type|post\s+(?:type|format)|ad\s+(?:type|format))$/],
     ['media', /^(?:image|video|visual|media|asset|creative(?:\s+(?:asset|file|concept|idea|direction|notes?|description))?|image\s+(?:hash|file)|video\s+(?:id|file)|visuals?|imagery|design|thumbnail)$/],
+    // settings the import file has no column for: they go on the after-import list
+    ['setting', /^(?:buying\s+type|a\s*b\s+test(?:ing)?|split\s+test(?:ing)?|advantage\s+(?:audience|creative(?:\s+enhancements?)?|shopping(?:\s+campaign)?)|(?:standard\s+)?creative\s+enhancements?|multi\s+advertiser(?:\s+ads?)?|translate\s+text|(?:text\s+)?translations?|brand\s+safety|inventory\s+filter|block\s+lists?|identity|ad\s+(?:setup|creation|source)|instagram\s+(?:account|profile)|attribution(?:\s+(?:setting|window|model))?|frequency(?:\s+cap(?:ping)?)?|dynamic\s+creative|site\s+links|value\s+rules|audience\s+suggestions?|campaign\s+spending\s+limit|spending\s+limit|budget\s+scheduling|placement\s+controls|(?:website|app|offline)\s+events|beneficiary|payer|delivery\s+type)$/],
     ['keywords', /^(?:negative\s+)?key\s?words?$/]
   ];
+  // labels that describe the plan, not a setting: "Structure: 1 campaign, 1 ad set, 3 ads"
+  const IGNORE_LABEL = /^(?:structure|campaign\s+structure|account\s+structure|naming(?:\s+conventions?)?|why|reason|rationale|purpose|notes?|comments?|tips?)$/;
+  // "Use existing post", "Existing Facebook Page posts", "Ad01_ExistingPost_Image"
+  const EXISTING_POST = /existing[\s_-]*(?:(?:page|facebook|fb|instagram|ig|organic)[\s_-]+)*posts?|use\s+(?:an?\s+)?existing\b|boost(?:ed|ing)?\s+(?:the\s+|a\s+|an\s+)?(?:page\s+|organic\s+)?posts?/i;
+  // a value that is only a placeholder: "[Client Page name]", "[date]"
+  const PLACEHOLDER = /\[[^\]]{1,60}\]/;
+  const onlyPlaceholder = v => /^\s*\[[^\]]{1,60}\]\s*$/.test(String(v).replace(/\([^)]*\)/g, ''));
   const LIST_FIELDS = new Set(['primary', 'headline', 'description', 'interests', 'audiences', 'exclusions', 'locations', 'audience', 'placements']);
   const COPY_FIELDS = new Set(['primary', 'headline', 'description']);
   const TARGETING_FIELDS = new Set(['age', 'gender', 'locations', 'interests', 'audiences', 'exclusions', 'audience', 'placements']);
@@ -272,7 +281,7 @@
   }
 
   // Prose sections that never hold ad content: skipped as one unit
-  const SKIP_SECTION = /^(?:notes?(?:\s+for\s+(?:the\s+)?(?:team|client))?|internal\s+notes?|strategy|strategic\s+(?:overview|rationale)|overview|rationale|why\s+this\s+works|kpis?(?:\s+and\s+(?:benchmarks?|targets?|goals?))?|benchmarks?|goals?\s+and\s+kpis?|success\s+metrics|reporting(?:\s+(?:plan|cadence))?|timeline|next\s+steps?|testing\s+(?:plan|strategy|framework|roadmap|schedule)|a\s*b\s+testing(?:\s+plan)?|optimi[sz]ation\s+(?:plan|strategy|schedule|roadmap|notes|checklist)|scaling(?:\s+(?:plan|strategy))?|measurement(?:\s+plan)?|tracking\s+(?:setup|plan)|assumptions?|creative\s+(?:guidelines|notes|brief|strategy|best\s+practices|requirements|specs?)|best\s+practices|recommendations?|budget\s+(?:rationale|notes|split\s+rationale|justification)|funnel(?:\s+(?:strategy|overview))?|competitor\s+\w+|appendix|introduction|executive\s+summary|table\s+of\s+contents|contents|launch\s+checklist|checklist|faqs?|questions?)$/;
+  const SKIP_SECTION = /^(?:notes?(?:\s+for\s+(?:the\s+)?(?:team|client))?|internal\s+notes?|strategy|strategic\s+(?:overview|rationale)|overview|rationale|why\s+this\s+works|kpis?(?:\s+and\s+(?:benchmarks?|targets?|goals?))?|benchmarks?|goals?\s+and\s+kpis?|success\s+metrics|reporting(?:\s+(?:plan|cadence))?|timeline|next\s+steps?|testing\s+(?:plan|strategy|framework|roadmap|schedule)|a\s*b\s+testing(?:\s+plan)?|optimi[sz]ation\s+(?:plan|strategy|schedule|roadmap|notes|checklist)|scaling(?:\s+(?:plan|strategy))?|measurement(?:\s+plan)?|tracking\s+(?:setup|plan)|assumptions?|creative\s+(?:guidelines|notes|brief|strategy|best\s+practices|requirements|specs?)|best\s+practices|recommendations?|budget\s+(?:rationale|notes|split\s+rationale|justification)|funnel(?:\s+(?:strategy|overview))?|competitor\s+\w+|appendix|introduction|executive\s+summary|table\s+of\s+contents|contents|(?:pre\s+|post\s+)?launch\s+checklist|checklist|faqs?|questions?|(?:key\s+)?metrics(?:\s+to\s+(?:track|watch|monitor))?|what\s+to\s+(?:track|watch|monitor)|monitoring(?:\s+plan)?|troubleshooting|common\s+mistakes|(?:optimi[sz]ation|testing)\s+(?:rules|guide|tips)|after\s+launch)$/;
 
   // Platforms. A section for another platform is skipped as one unit when the doc also has a Meta section.
   const META_WORDS = /\b(?:meta|facebook|fb|instagram|insta|ig|messenger|whatsapp)\b/i;
@@ -313,7 +322,7 @@
   const OPTION = /^(?:option|variation|version|variant|copy|v|alt(?:ernative)?)\s*#?\s*(?:\d{1,2}|[a-e])(?![\p{L}\d])\s*(?:\([^)]*\))?\s*(?:[:.)\-–—|]\s*)(.*)$/iu;
 
   // Settings-like heading names that are containers, never an ad set: "Shared Targeting Parameters", "Account setup"
-  const CONTAINER_NAME = /\b(?:shared|global|account|general|default|common|overall|setup|settings?|parameters|structure|summary|overview|plan|framework|details|breakdown|allocation|split|campaigns|ad\s*sets|audiences\s+overview|targeting\s+overview)\b/i;
+  const CONTAINER_NAME = /\b(?:shared|global|account|general|default|common|overall|setup|settings?|parameters|structure|summary|overview|plan|framework|details|breakdown|allocation|split|campaigns|ad\s*sets|audiences\s+overview|targeting\s+overview|glance|snapshot|quick\s+view|at\s+a\s+look)\b/i;
 
   const isCopyNoteLine = t => /^\(.*\)$|^\[.*\]$/.test(t);
   const isNameLike = t => {
@@ -602,7 +611,9 @@
     ['ISSUES_ELECTIONS_POLITICS', 'Social issues, elections or politics']
   ];
   function parseSpecial(v) {
-    const t = norm(v).toLowerCase();
+    // "None (select one only if the Page covers housing…)": the note in brackets is advice, not the answer
+    const t = norm(v).toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/^(?:none|n\/?a|no|not\s+applicable|nil|not\s+needed|not\s+required)\b/.test(t)) return 'NONE';
     if (/\b(?:none|n\/?a|no|not\s+applicable|nil)\b/.test(t) && !/housing|employ|credit|financ|politic|election/.test(t)) return 'NONE';
     if (/housing|real\s+estate|rental|mortgage/.test(t)) return 'HOUSING';
     if (/employ|jobs?\b|hiring|recruit/.test(t)) return 'EMPLOYMENT';
@@ -688,7 +699,7 @@
   // position words -> the value on each platform that has that position
   const POSITION_WORDS = [
     ['video_feeds', /\bvideo\s+feeds?\b/, { facebook: 'video_feeds' }],
-    ['feed', /(?<!video\s)\bfeeds?\b|\bnews\s*feed\b/, { facebook: 'feed', instagram: 'stream' }],
+    ['feed', /(?<!video\s|profile\s)\bfeeds?\b|\bnews\s*feed\b/, { facebook: 'feed', instagram: 'stream' }],
     ['story', /\bstor(?:y|ies)\b/, { facebook: 'story', instagram: 'story', messenger: 'story' }],
     ['reels', /\breels?\b/, { facebook: 'facebook_reels', instagram: 'reels' }],
     ['explore', /\bexplore\b/, { instagram: 'explore' }],
@@ -704,9 +715,51 @@
   const wordsIn = s => POSITION_WORDS.filter(([, rx]) => rx.test(s)).map(w => w[0]);
   // "Instagram Feed, Stories and Reels; Facebook Feed": each platform takes the positions written after it.
   // "Facebook & Instagram Feed, Reels" shares them; "Instagram only" takes all of Instagram's.
+  // Words that turn a placement off: "Instagram, Messenger and Audience Network all unchecked", "no Stories"
+  const PLACEMENT_OFF = /\b(?:un-?check(?:ed)?|untick(?:ed)?|de-?select(?:ed)?|remove[ds]?|off|exclud(?:e|ed|ing)|not|no|without|except|disabled?|skip(?:ped)?|avoid)\b/;
   function parsePlacements(v) {
     const t = norm(v).toLowerCase();
     if (!t) return null;
+    if (PLACEMENT_OFF.test(t)) return parsePlacementClauses(t);
+    return parsePlacementText(t);
+  }
+  // Each clause either adds platforms and positions or takes them away
+  function parsePlacementClauses(t) {
+    const clauses = t.split(/[.;!]+\s*|\s*,?\s*\bbut\b\s*|\s*,\s*(?=(?:and\s+)?(?:no|not|without|except|excluding)\b)|\s+(?=(?:except|excluding|without)\b)/).map(x => x.trim()).filter(Boolean);
+    let on = null;
+    const offPlat = new Set(), offPos = [];
+    clauses.forEach(c => {
+      if (!PLACEMENT_OFF.test(c)) { const p = parsePlacementText(c); if (p) on = mergePlacements(on, p); return; }
+      const plats = [];
+      let m;
+      PLAT_WORD.lastIndex = 0;
+      while ((m = PLAT_WORD.exec(c))) plats.push(platKey(m[1].replace(/\s+/g, ' ')));
+      const words = wordsIn(c);
+      if (words.length) offPos.push({ plats, words });
+      else plats.forEach(p => offPlat.add(p));
+    });
+    if (!on || on.mode !== 'manual') {
+      if (!offPlat.size && !offPos.length) return on;
+      // "No Audience Network": every other platform stays on
+      on = { mode: 'manual', platforms: [], positions: {} };
+      ['facebook', 'instagram', 'messenger', 'audience_network'].forEach(p => { on.platforms.push(p); on.positions[p] = POSITIONS[p].map(x => x[0]); });
+    }
+    const out = { mode: 'manual', platforms: [], positions: {} };
+    on.platforms.forEach(p => {
+      if (offPlat.has(p)) return;
+      let list = (on.positions[p] || []).slice();
+      offPos.forEach(o => {
+        if (o.plats.length && !o.plats.includes(p)) return;
+        const drop = POSITION_WORDS.filter(w => o.words.includes(w[0]) && w[2][p]).map(w => w[2][p]);
+        list = list.filter(x => !drop.includes(x) && !(x === 'explore_home' && drop.includes('explore')));
+      });
+      if (!list.length) return;
+      out.platforms.push(p);
+      out.positions[p] = list;
+    });
+    return out.platforms.length ? out : null;
+  }
+  function parsePlacementText(t) {
     if (/advantage\s*\+?\s*placements?|\bautomatic\b|\bauto\s+placements?|\ball\s+placements\b|advantage\s*\+|\bautomated\b/.test(t)) return { mode: 'advantage' };
     const mentions = [];
     let m;
@@ -950,10 +1003,10 @@
   /* ---------- 5. Doc -> nodes ---------- */
 
   function newNode(kind, name, parent) {
-    return { kind, name: name || '', parent: parent || null, f: {}, l: { primary: [], headline: [], description: [], interests: [], audiences: [], exclusions: [], locations: [], notes: [] }, placeholder: false, explicit: false };
+    return { kind, name: name || '', parent: parent || null, f: {}, l: { primary: [], headline: [], description: [], interests: [], audiences: [], exclusions: [], locations: [], notes: [], settings: [] }, placeholder: false, explicit: false };
   }
   function newResult() {
-    return { title: '', account: newNode('account', ''), campaigns: [], adSets: [], ads: [], notes: [], skipped: [] };
+    return { title: '', account: newNode('account', ''), campaigns: [], adSets: [], ads: [], notes: [], skipped: [], placeholders: [] };
   }
 
   function findCampaign(res, name) {
@@ -1015,6 +1068,12 @@
   function putField(res, node, field, value, src) {
     const v = norm(value);
     const f = node.f, l = node.l;
+    const srcLabel = norm(src && src.label || '');
+    // "[Client Page name]", "[date]": a blank the doc's author left to fill in
+    if (!COPY_FIELDS.has(field) && !/Name$/.test(field) && field !== 'setting' && (onlyPlaceholder(v) || (PLACEHOLDER.test(v) && !findAmount(v.replace(/\[[^\]]*\]/g, ' ')) && !/\d{4}/.test(v) && ['schedule', 'startDate', 'endDate', 'page', 'pixel', 'leadForm', 'url', 'phone', 'appId', 'appStore'].includes(field)))) {
+      if (res.placeholders && !res.placeholders.some(x => x.value === v)) res.placeholders.push({ label: srcLabel || fieldName(field), value: v });
+      return true;
+    }
     switch (field) {
       case 'objective': {
         const o = parseObjective(v);
@@ -1031,21 +1090,26 @@
       case 'budget': {
         const b = parseBudget(src && src.label, v);
         if (!b) return false;
-        if (/\b(?:cbo|campaign\s+budget|advantage\s+(?:\+\s*)?campaign\s+budget)\b/i.test(v) && !f.budgetType) f.budgetType = 'campaign';
-        if (/\b(?:abo|ad\s*set\s+budget)\b/i.test(v) && !f.budgetType) f.budgetType = 'adset';
+        if (/\b(?:cbo|campaign\s+budget|advantage\s+(?:\+\s*)?campaign\s+budget|(?:at\s+)?campaign\s+level)\b/i.test(v) && !/\bno\s+cbo\b|campaign\s+budget\s+(?:is\s+)?off/i.test(v) && !f.budgetType) f.budgetType = 'campaign';
+        if (/\b(?:abo|ad\s*set\s+budgets?|ad\s*set\s+level)\b/i.test(v) && !f.budgetType) f.budgetType = 'adset';
         // "Monthly $600 | Daily $19.74": the daily figure the doc worked out wins
         if (f.budget && f.budget.basis === 'daily' && b.basis !== 'daily' && b.basis !== 'lifetime') return true;
         f.budget = b;
         return true;
       }
       case 'budgetType':
-        if (/\bcbo\b|campaign|advantage/i.test(v)) { f.budgetType = 'campaign'; return true; }
         if (/\babo\b|ad\s*set/i.test(v)) { f.budgetType = 'adset'; return true; }
+        // "Advantage+ campaign budget: OFF" means ad set budgets
+        if (/advantage|campaign\s+budget|\bcbo\b/i.test(srcLabel) && /^(?:off|no|disabled?|not\s+used|none)\b/i.test(v)) { f.budgetType = 'adset'; return true; }
+        if (/advantage|campaign\s+budget|\bcbo\b/i.test(srcLabel) && /^(?:on|yes|enabled?|used)\b/i.test(v)) { f.budgetType = 'campaign'; return true; }
+        if (/\bcbo\b|campaign|advantage/i.test(v)) { f.budgetType = 'campaign'; return true; }
         return false;
       case 'specialCategory': { const s = parseSpecial(v); if (!s) return false; f.specialCategory = s; return true; }
       case 'bidStrategy': { const b = parseBidStrategy(v); if (!b) return false; f.bidStrategy = b.strategy; if (b.amount) f.bidAmount = b.amount; return true; }
       case 'bidAmount': {
         const a = findAmount(v);
+        // "Leave blank (highest volume bidding)": no cost goal
+        if (!a && /leave\s+(?:it\s+)?(?:blank|empty)|highest\s+volume|lowest\s+cost|^(?:none|n\/?a|no|blank|not\s+set|no\s+cap|automatic)\b/i.test(v)) { f.bidStrategy = f.bidStrategy || 'LOWEST_COST_WITHOUT_CAP'; return true; }
         if (!a) return false;
         const lk = labelKey(src && src.label || '');
         f.bidStrategy = f.bidStrategy || (/bid\s+cap/.test(lk) ? 'LOWEST_COST_WITH_BID_CAP' : /roas/.test(lk) ? 'LOWEST_COST_WITH_MIN_ROAS' : 'COST_CAP');
@@ -1107,7 +1171,11 @@
       }
       case 'audiences': case 'exclusions': {
         const lk = labelKey(src && src.label || '');
-        const items = splitList(v).map(x => (field === 'audiences' && /look\s?alike|\blal\b|\blla\b/.test(lk) && !/look\s?alike|\blal\b|\blla\b|%/i.test(x)) ? 'Lookalike: ' + x : x);
+        // "People who like or follow your Page, if the goal is new people": one audience, without the condition
+        const cv = v.replace(/,?\s+\b(?:if|when|unless|so\s+that)\b\s.*$/i, '').trim();
+        const parts = /\b(?:who|that|which|people|users|anyone|everyone)\b/i.test(cv) ? cv.split(/\s*[;\n]\s*/).map(x => norm(x).replace(/[.;:]+$/, '')).filter(Boolean) : splitList(cv);
+        const optional = /\boptional\b/i.test(srcLabel) ? ' (optional)' : '';
+        const items = parts.map(x => (field === 'audiences' && /look\s?alike|\blal\b|\blla\b/.test(lk) && !/look\s?alike|\blal\b|\blla\b|%/i.test(x)) ? 'Lookalike: ' + x : x).map(x => x + optional);
         items.forEach(x => { if (!l[field].some(o => key(o) === key(x))) l[field].push(x); });
         return items.length > 0;
       }
@@ -1122,7 +1190,11 @@
         // the text itself is kept on the ad set, so the line always counts as read
         return true;
       }
-      case 'placements': { const p = parsePlacements(v); if (!p) return false; f.placements = mergePlacements(f.placements && f.placements.mode === 'manual' && p.mode === 'manual' ? f.placements : null, p); return true; }
+      case 'placements': {
+        // "Advantage+ placements: OFF" says manual; the platforms come from elsewhere
+        if (/advantage/i.test(srcLabel) && /^(?:off|no|disabled?|manual)\b/i.test(v)) return true;
+        if (/advantage/i.test(srcLabel) && /^(?:on|yes|enabled?)\b/i.test(v)) { f.placements = { mode: 'advantage' }; return true; }
+        const p = parsePlacements(v); if (!p) return false; f.placements = mergePlacements(f.placements && f.placements.mode === 'manual' && p.mode === 'manual' ? f.placements : null, p); return true; }
       case 'languages': f.languages = v; return true;
       case 'devices': f.devices = v; return true;
       case 'primary': case 'headline': case 'description': {
@@ -1141,6 +1213,8 @@
       case 'displayLink': f.displayLink = v.replace(/^https?:\/\//i, ''); return !!v;
       case 'urlTags': {
         const q = v.replace(/^.*?\?/, '').replace(/^[?&]/, '');
+        // "Tracking: Website events and app events OFF" is a setting, not URL parameters
+        if (!/=/.test(q) && /^tracking$/i.test(labelKey(srcLabel)) && v) return putField(res, node, 'setting', v, src);
         if (!/=/.test(q)) return false;
         f.urlTags = q.replace(/\s+/g, '');
         return true;
@@ -1153,12 +1227,27 @@
         if (hash) f.imageHash = hash[0];
         const vid = v.match(/\bv:(\d{6,20})\b|\bvideo\s+id\s*:?\s*(\d{6,20})\b/i);
         if (vid) f.videoId = vid[1] || vid[2];
+        if (EXISTING_POST.test(v)) f.existingPost = true;
         f.media = f.media ? f.media + '\n' + v : v;
         return true;
       }
       case 'campaignName': case 'adSetName': case 'adName':
         node.name = cleanName(v) || node.name;
         return !!v;
+      case 'setting': {
+        const lk = labelKey(srcLabel);
+        if (!v) return false;
+        if (EXISTING_POST.test(v)) {
+          f.existingPost = true;
+          if (/^ad\s+(?:setup|creation|source)$/.test(lk)) return true;
+        }
+        // already in the import file
+        if (/^buying\s+type$/.test(lk) && /auction/i.test(v)) return true;
+        l.settings = l.settings || [];
+        const label = srcLabel.replace(/:\s*$/, '') || 'Setting';
+        if (!l.settings.some(x => key(x.label) === key(label))) l.settings.push({ label, value: v });
+        return true;
+      }
       default:
         return false;
     }
@@ -1288,9 +1377,19 @@
         if (n && fromTable[n - 1]) nm = fromTable[n - 1].name;
       }
       const c = addCampaign(res, nm);
+      dropAnchors(c);
       stack.push({ level, kind: 'campaign', node: c, synthetic });
       pending = null;
       return c;
+    }
+    // A structure table with one campaign and one ad set anchors them under every later section.
+    // Opening another campaign or ad set lifts the anchor.
+    function dropAnchors(camp) {
+      for (let k = stack.length - 1; k >= 0; k--) {
+        const e = stack[k];
+        if (!e.anchor) continue;
+        if (camp === undefined ? e.kind === 'adset' : !(e.kind === 'adset' && e.node.parent === camp)) stack.splice(k, 1);
+      }
     }
     function openAdSet(name, level, synthetic) {
       popTo(level, false);
@@ -1303,6 +1402,7 @@
         if (n && ph[n - 1]) nm = ph[n - 1].name;
       }
       const a = addAdSet(res, camp, nm);
+      dropAnchors();
       stack.push({ level, kind: 'adset', node: a, synthetic });
       pending = null;
       return a;
@@ -1316,8 +1416,14 @@
         stack.push({ level: level - 0.5, kind: 'adset', node: as, synthetic: true });
       }
       const nm = cleanName(name);
-      const ad = addAd(res, as, AD_ONLY.test(nm) ? '' : nm);
-      if (!ad.name) ad.name = nm;
+      // "Ad 2" after a structure table that named the ads: the second named ad
+      const only = AD_ONLY.exec(nm);
+      const named = res.ads.filter(a => a.parent === as && a.fromTable);
+      let ad = null;
+      if (only) { const n = parseInt(only[1].replace(/\D/g, ''), 10); if (n && named[n - 1] && named[n - 1].placeholder) ad = named[n - 1]; }
+      else ad = named.find(a => a.placeholder && (key(a.name) === key(nm) || sim(a.name, nm) >= 0.75)) || null;
+      if (ad) ad.placeholder = false;
+      else { ad = addAd(res, as, only ? '' : nm); if (!ad.name) ad.name = nm; }
       stack.push({ level, kind: 'ad', node: ad, synthetic });
       pending = null;
       return ad;
@@ -1423,6 +1529,7 @@
       const rowsKept = platCol >= 0 ? body.filter(r => !r[platCol] || META_WORDS.test(r[platCol]) || platformOf(r[platCol]) === 'meta' || platformOf(r[platCol]) === 'mixed') : body;
       if (platCol >= 0 && rowsKept.length < body.length) notes.push({ msg: 'Left out ' + (body.length - rowsKept.length) + ' table row(s) for other platforms.', level: 'info' });
 
+      if (structureTable(rows, head)) return;
       // campaign table: Campaign | Objective | Budget | Ad Sets
       if (has('campaignName') && !copyCols && head.filter(f => f && f !== 'campaignName').length >= 1 && !has('adName')) {
         const asCol = idx('adSetName');
@@ -1474,6 +1581,33 @@
         });
         return;
       }
+      // Ad | Post type | What to look for: details for ads the doc named earlier
+      if (idx('adName') === 0 && !copyCols && !has('campaignName') && !has('adSetName') && head.some((f, i) => i > 0 && rows[0][i])) {
+        let as = cur('adset') || res.adSets.filter(a => a.parent === cur('campaign')).slice(-1)[0] || null;
+        rowsKept.forEach(r => {
+          const ref = norm(r[0] || '');
+          if (!ref) return;
+          if (!as) as = addAdSet(res, cur('campaign'), cur('campaign') ? cur('campaign').name + ' - Ad set' : 'Ad set 1');
+          const mine = res.ads.filter(a => a.parent === as);
+          const only = AD_ONLY.exec(ref);
+          let ad = null;
+          if (only) { const n = parseInt(only[1].replace(/\D/g, ''), 10); if (n) ad = mine[n - 1] || null; }
+          if (!ad) ad = mine.find(a => key(a.name) === key(ref) || sim(a.name, ref) >= 0.75) || null;
+          if (!ad) { ad = addAd(res, as, only ? '' : ref); if (!ad.name) ad.name = cleanName(ref); }
+          const extra = [];
+          head.forEach((f, ci) => {
+            const cell = r[ci];
+            if (!cell || ci === 0) return;
+            if (f && !['count', 'label', 'value', 'platform', 'adName'].includes(f) && putField(res, ADSET_FIELDS.has(f) || CAMPAIGN_FIELDS.has(f) ? as : ad, f, cell, { label: rows[0][ci] })) return;
+            extra.push(cell);
+          });
+          const fm = parseFormat(extra.join(' '));
+          if (fm && !ad.f.format) ad.f.format = fm;
+          if (EXISTING_POST.test(extra.join(' '))) ad.f.existingPost = true;
+          extra.forEach(x => { if (!ad.l.notes.includes(x)) ad.l.notes.push(x); });
+        });
+        return;
+      }
       // one copy column (+ a character count): a list for the current ad set
       if (copyCols === 1 && head.filter(f => f && f !== 'count').length === 1) {
         const f = head.find(x => COPY_FIELDS.has(x));
@@ -1489,7 +1623,7 @@
         return;
       }
       // key / value table, also "Attribute | Meta | Google" and "Element | Ad 1 | Ad 2"
-      const col0 = rows.map(r => fieldOf(r[0] || ''));
+      const col0 = rows.map(r => IGNORE_LABEL.test(labelKey(r[0] || '')) ? 'ignore' : fieldOf(r[0] || ''));
       const known = col0.filter(Boolean).length;
       if (known >= Math.max(1, Math.ceil(rows.length * 0.4)) && rows[0].length >= 2) {
         const metaCol = rows[0].findIndex((h, i) => i > 0 && META_WORDS.test(h));
@@ -1506,7 +1640,9 @@
         rows.forEach((r, ri) => {
           const f = col0[ri];
           if (ri === 0 && !f) return;
-          if (!f) { if (r.some(Boolean)) skip(r.filter(Boolean).join(' | '), 'Table row not recognized', 'table', nodeRef()); return; }
+          if (f === 'ignore') return;
+          // a row the settings table holds that is not an Ads Manager setting: commentary
+          if (!f) { if (r.some(Boolean)) skip(r.filter(Boolean).join(' | '), 'Row not used (not a setting this tool reads)', 'note', nodeRef()); return; }
           if (!r[vc]) return;
           if (f === 'keywords') { skip(r.join(' | '), 'Keywords are for Google Search. Meta does not use them.', 'google'); return; }
           const node = f === 'campaignName' ? (cur('campaign') || res.account) : f === 'adSetName' ? (cur('adset') || res.account) : f === 'adName' ? (cur('ad') || res.account) : nodeFor(f);
@@ -1518,6 +1654,134 @@
       }
       skip(rows.slice(0, 3).map(r => r.filter(Boolean).join(' | ')).join('\n') + (rows.length > 3 ? '\n…' : ''), 'Table not recognized (' + rows.length + ' rows)', 'table', nodeRef());
     }
+
+    // "Campaign", "Ad set", "Ad 2" in a Level column
+    const levelOf = cell => {
+      const m = /^(campaign|ad\s*set|adset|ad|creative)\s*#?\s*(?:\d{1,3}|[a-z])?$/i.exec(norm(cell).replace(/[:.]\s*$/, ''));
+      if (!m) return null;
+      return /^campaign/i.test(m[1]) ? 'campaign' : /set/i.test(m[1]) ? 'adset' : 'ad';
+    };
+    // Level | Name | Purpose: the campaign, ad set and ads written out as a table
+    function structureTable(rows, head) {
+      const body = rows.slice(1);
+      if (body.length < 2) return false;
+      const width = Math.max.apply(null, rows.map(r => r.length));
+      let lc = -1;
+      for (let ci = 0; ci < Math.min(width, 3); ci++) {
+        const lv = body.map(r => levelOf(r[ci] || ''));
+        const n = lv.filter(Boolean).length;
+        if (n >= 2 && n >= body.length * 0.6 && lv.some(x => x === 'campaign' || x === 'adset')) { lc = ci; break; }
+      }
+      if (lc < 0) return false;
+      let nc = rows[0].findIndex((h, i) => i !== lc && /\bname\b/.test(labelKey(h)));
+      if (nc < 0) nc = lc + 1 < width ? lc + 1 : -1;
+      if (nc < 0) return false;
+      const counts = { campaign: 0, adset: 0 };
+      body.forEach(r => { const k = levelOf(r[lc] || ''); if (k && k !== 'ad' && norm(r[nc])) counts[k]++; });
+      let camp = cur('campaign'), as = cur('adset');
+      body.forEach(r => {
+        const kind = levelOf(r[lc] || '');
+        const name = cleanName(r[nc] || '');
+        if (!kind) { if (r.some(Boolean)) skip(r.filter(Boolean).join(' | '), 'Table row not recognized', 'table', nodeRef()); return; }
+        if (!name) return;
+        let node;
+        if (kind === 'campaign') { camp = addCampaign(res, name); as = null; node = camp; }
+        else if (kind === 'adset') { as = addAdSet(res, camp, name); node = as; }
+        else {
+          if (!as) as = res.adSets.filter(a => a.parent === camp).slice(-1)[0] || addAdSet(res, camp, camp ? camp.name + ' - Ad set' : 'Ad set 1');
+          node = addAd(res, as, name);
+          node.placeholder = true;
+          node.fromTable = true;
+        }
+        const extra = [];
+        rows[0].forEach((h, ci) => {
+          const f = head[ci];
+          if (ci === lc || ci === nc || !r[ci]) return;
+          if (f && !['campaignName', 'adSetName', 'adName', 'count', 'label', 'value', 'platform'].includes(f) && putField(res, node, f, r[ci], { label: h })) return;
+          extra.push(r[ci]);
+        });
+        if (kind === 'ad') {
+          const all = name + ' ' + extra.join(' ');
+          const fm = parseFormat(name.replace(/[_-]+/g, ' ')) || parseFormat(extra.join(' '));
+          if (fm && !node.f.format) node.f.format = fm;
+          if (EXISTING_POST.test(all)) node.f.existingPost = true;
+          extra.forEach(x => node.l.notes.push(x));
+        }
+      });
+      if (counts.adset === 1 && as) stack.unshift({ level: 0, kind: 'adset', node: as, synthetic: true, anchor: true });
+      if (counts.campaign === 1 && camp) stack.unshift({ level: 0, kind: 'campaign', node: camp, synthetic: true, anchor: true });
+      pending = null;
+      return true;
+    }
+
+    // Placement | Keep/Remove: which platforms and positions stay on
+    const toggleOf = cell => {
+      const t = norm(cell).toLowerCase();
+      if (/^(?:remove[ds]?|off|no|exclude[ds]?|un-?check(?:ed)?|untick(?:ed)?|de-?select(?:ed)?|drop(?:ped)?|don'?t\s+use|not\s+used|disabled?|✗|✘|❌)(?![a-z])/.test(t)) return 'off';
+      if (/^(?:keep|kept|on|yes|include[ds]?|selected|checked|ticked|use|used|active|enabled?|✓|✔|✅)(?![a-z])/.test(t)) return 'on';
+      return null;
+    };
+    function placementTable(rows) {
+      const body = rows.slice(1);
+      if (body.length < 2) return false;
+      const width = Math.max.apply(null, rows.map(r => r.length));
+      let tc = -1;
+      for (let ci = 1; ci < width; ci++) {
+        const n = body.filter(r => toggleOf(r[ci] || '')).length;
+        if (n >= 2 && n >= body.length * 0.6) { tc = ci; break; }
+      }
+      if (tc < 0) return false;
+      const parsed = body.map(r => parsePlacementText(norm(r[0] || '').toLowerCase()));
+      if (parsed.filter(p => p && p.mode === 'manual').length < body.length * 0.5) return false;
+      const node = nodeFor('placements');
+      const acc = node.f.placementRows || (node.f.placementRows = { whole: {}, pos: {}, off: {} });
+      const uniq = a => Array.from(new Set(a));
+      body.forEach((r, i) => {
+        const p = parsed[i], st = toggleOf(r[tc] || '');
+        if (!p || p.mode !== 'manual' || !st) return;
+        const whole = !wordsIn(norm(r[0]).toLowerCase()).length;
+        p.platforms.forEach(pl => {
+          if (st === 'on') { if (whole) acc.whole[pl] = true; else acc.pos[pl] = uniq((acc.pos[pl] || []).concat(p.positions[pl])); }
+          else if (whole) acc.off[pl] = '*';
+          else if (acc.off[pl] !== '*') acc.off[pl] = uniq((acc.off[pl] || []).concat(p.positions[pl]));
+        });
+      });
+      // platforms kept whole, else what the doc already set, else all of them
+      const prev = node.f.placements && node.f.placements.mode === 'manual' ? node.f.placements.platforms : null;
+      const base = Object.keys(acc.whole).length || Object.keys(acc.pos).length ? Object.keys(acc.whole) : (prev || ['facebook', 'instagram', 'messenger', 'audience_network']);
+      const out = { mode: 'manual', platforms: [], positions: {} };
+      ['facebook', 'instagram', 'messenger', 'audience_network'].forEach(pl => {
+        let list = null;
+        if ((acc.pos[pl] || []).length) list = acc.pos[pl].slice();
+        else if (base.includes(pl) && acc.off[pl] !== '*') list = POSITIONS[pl].map(x => x[0]).filter(x => !(acc.off[pl] || []).includes(x));
+        if (!list || !list.length) return;
+        out.platforms.push(pl);
+        out.positions[pl] = list;
+      });
+      if (out.platforms.length) node.f.placements = out;
+      pending = null;
+      return true;
+    }
+
+    // "Engagement objective | $10/day | United States | Facebook placements only"
+    function pipeSummary(t) {
+      const pieces = t.split(/\s+\|\s+/).map(norm).filter(Boolean);
+      if (pieces.length < 2) return false;
+      const hits = [];
+      pieces.forEach(x => {
+        if (/objective|awareness|traffic|engagement|\bleads?\b|\bsales\b|app\s+promotion/i.test(x) && parseObjective(x)) hits.push(['objective', x]);
+        else if (findAmount(x) && /[$€£₹]|\/\s*(?:day|d|mo|month|week)|per\s+(?:day|month|week)|daily|monthly|budget|lifetime/i.test(x)) hits.push(['budget', x]);
+        else if (/placements?|\bonly\b|feeds?|reels|stories/i.test(x) && parsePlacements(x)) hits.push(['placements', x]);
+        else if (parseLocations(x).list.length && !/\d/.test(x)) hits.push(['locations', x]);
+      });
+      if (hits.length < 2) return false;
+      hits.forEach(([f, x]) => putField(res, nodeFor(f), f, x));
+      return true;
+    }
+    // Advice written as prose: "Why one ad set: ...", "Select Manual placements. ..."
+    const isNoteLine = t => /^(?:why|note|notes|nb|tip|tips|important|reason|remember|rationale)\b/i.test(t) || /:$/.test(t)
+      || (t.split(' ').length >= 8 && !/[!?]|\byou(?:r|'re)?\b/i.test(t) && !/\p{Extended_Pictographic}/u.test(t)
+        && /\b(?:must|should|need\s+to|needs\s+to|make\s+sure|deliberate|otherwise|so\s+that|because|select|uncheck|turn\s+(?:on|off)|meta\s+(?:will|can|may)|the\s+algorithm|learning\s+phase)\b/i.test(t));
 
     function splitAdSetNames(cell) {
       return String(cell).split(/\s*(?:\n|;|,(?![^(]*\)))\s*/).map(cleanName).filter(x => x && !/^(?:n\/?a|none|-|tbd)$/i.test(x));
@@ -1608,6 +1872,10 @@
 
       if (b.t === 'table') {
         const re = roleEntry();
+        // a table inside a notes, metrics or checklist section is part of that section
+        if (!pending && re && re.kind === 'skip') { re.lines++; if (re.lines === 1) skip(re.name, re.google ? 'Keywords are for Google Search. Meta does not use them.' : 'Notes or strategy section, not ad content', re.google ? 'google' : 'note'); continue; }
+        if (pending && pending.field === 'skip') { pending.lines++; if (pending.lines === 1) skip(pending.label, 'Notes or strategy section, not ad content', 'note'); continue; }
+        if (placementTable(b.rows)) continue;
         const role = pending || (re && re.kind === 'role' ? re.role : null);
         // a table right under a "Headlines" or "Interests" label is that list
         if (role && role.field !== 'skip' && role.field !== 'keywords' && b.rows.every(r => r.filter(Boolean).length <= 2) && b.rows[0] && !b.rows[0].some(c => colField(c) && colField(c) !== 'count' && colField(c) !== role.field)) {
@@ -1686,8 +1954,10 @@
         continue;
       }
       if (findUrl(t) && /^\S+$/.test(t)) { putField(res, nodeFor('url'), 'url', t); continue; }
+      if (/\s\|\s/.test(t) && pipeSummary(t)) continue;
       // the client name and doc title lines above the first section
       if (!stack.length && !blocks.slice(0, i).some(x => x.t === 'h') && t.split(' ').length <= 8 && !/[.!?]$/.test(t)) continue;
+      if (isNoteLine(t)) { skip(t, 'Note or advice, not ad content', 'note', nodeRef()); continue; }
       skip(t, b.bold ? 'Bold line not recognized' : 'Line outside a recognized section', 'line', nodeRef());
     }
 
@@ -1767,7 +2037,8 @@
         camp.budgetLevel = 'adset';
         if (campBudget && setBudgets.length < sets.length) {
           notes.push({ msg: camp.name + ': some ad sets have their own budget and some do not. Check the ad set budgets.', level: 'warn' });
-        } else if (campBudget) {
+        } else if (campBudget && !(campBudget.period === 'daily' && Math.abs(setBudgets.reduce((t, x) => t + (x.f.budget.daily || 0), 0) - campBudget.daily) < 0.01)) {
+          // said only when the figures differ: "$10 a day, set at ad set level" next to a $10 ad set is the same budget
           notes.push({ msg: camp.name + ': used the ad set budgets. The campaign budget of ' + fmtNum(campBudget.amount) + ' in the doc was left out.', level: 'info' });
         }
       } else if (campBudget && type === 'adset' && sets.length) {
@@ -1805,7 +2076,12 @@
           goal: pick('optimization', sn, cn, acct) || '',
           event: pick('event', sn) || '',
           bidStrategy: sn.f.bidStrategy || '', bidAmount: sn.f.bidAmount || null,
-          notes: sn.l.notes.slice()
+          notes: sn.l.notes.slice(),
+          // settings the import file cannot carry, from the account, campaign, ad set and its ads
+          settings: [acct, cn, sn].concat(res.ads.filter(x => x.parent === sn)).reduce((out, n) => {
+            (n.l.settings || []).forEach(x => { if (!out.some(o => key(o.label) === key(x.label))) out.push(Object.assign({}, x)); });
+            return out;
+          }, [])
         };
         if (camp.budgetLevel === 'adset' && !as.budget && sn.f.budget) as.budget = budgetOut(sn.f.budget);
         if (as.budget && sn.f.budget && sn.f.budget.basis === 'monthly') notes.push({ msg: as.name + ': monthly budget of ' + fmtNum(sn.f.budget.amount) + ' set as ' + fmtNum(sn.f.budget.daily) + ' a day.', level: 'info' });
@@ -1817,7 +2093,8 @@
         const adBase = n => ({
           cta: pick('cta', n, sn, cn, acct) || '', url: pick('url', n, sn, cn) || '', displayLink: pick('displayLink', n, sn, cn, acct) || '',
           urlTags: pick('urlTags', n, sn, cn) || '', format: pick('format', n, sn, cn) || '', media: pick('media', n, sn) || '',
-          imageHash: pick('imageHash', n) || '', videoId: pick('videoId', n) || ''
+          imageHash: pick('imageHash', n) || '', videoId: pick('videoId', n) || '',
+          existingPost: !!pick('existingPost', n, sn, cn, acct), notes: n ? n.l.notes.slice() : []
         });
         if (own.length) {
           own.forEach((an, k) => {
@@ -1868,7 +2145,8 @@
       const u = res.campaigns.map(c => c.f.url).find(Boolean);
       if (u) detected.url = u;
     }
-    if (acct.f.languages || res.campaigns.some(c => c.f.languages)) notes.push({ msg: 'Language targeting from the doc is left out. Meta advises it only when the audience speaks a language that is uncommon where they live.', level: 'info' });
+    if (res.placeholders && res.placeholders.length) notes.push({ msg: 'The doc leaves blanks to fill in: ' + res.placeholders.map(x => x.label.replace(/:\s*$/, '') + ': ' + x.value).join('; ') + '. Add them here or in Ads Manager.', level: 'warn' });
+    if (acct.f.languages || res.campaigns.some(c => c.f.languages) || res.adSets.some(a => a.f.languages)) notes.push({ msg: 'Language targeting from the doc is left out. Meta advises it only when the audience speaks a language that is uncommon where they live.', level: 'info' });
 
     return {
       name: sourceName || '', title: res.title,
@@ -1951,7 +2229,9 @@
     const warn = (msg, ref) => warnings.push(Object.assign({ msg }, ref || {}));
     const withAds = S.scope !== 'structure';
     if (!model.campaigns.length) err('No campaigns. Load a doc or add a campaign.');
-    if (withAds && model.ads.length) {
+    // ads made from an existing Page post are created in Ads Manager, so they need no Page ID, copy or media here
+    const fileAds = model.ads.filter(x => !x.existingPost);
+    if (withAds && fileAds.length) {
       if (!S.pageId) err('Add your Facebook Page ID under Account defaults. Every ad runs from a Page.', { field: 'pageId' });
       else if (!digits(S.pageId)) err('The Page ID should be the number from your Page\'s About section or Business settings.', { field: 'pageId' });
     }
@@ -1963,6 +2243,7 @@
       const sets = model.adSets.filter(a => a.campaignId === c.id);
       const k = key(c.name);
       if (!norm(c.name)) err('A campaign has no name.', ref);
+      else if (PLACEHOLDER.test(c.name)) warn(c.name + ': the name still has a placeholder (' + c.name.match(/\[[^\]]+\]/g).join(', ') + '). Replace it before import.', Object.assign({ field: 'name' }, ref));
       else if (seenC[k]) err('Two campaigns are named "' + c.name + '". Ads Manager matches rows by name, so give each a different name.', ref);
       seenC[k] = true;
       if (!c.objective) err(c.name + ': pick an objective.', Object.assign({ field: 'objective' }, ref));
@@ -1994,6 +2275,7 @@
         const e = setEff(a, S);
         const sk = key(a.name);
         if (!norm(a.name)) err(c.name + ': an ad set has no name.', r);
+        else if (PLACEHOLDER.test(a.name)) warn(nm + ': the name still has a placeholder. Replace it before import.', r);
         else if (seenS[sk]) err(c.name + ': two ad sets are named "' + a.name + '".', r);
         seenS[sk] = true;
         if (c.budgetLevel === 'adset') {
@@ -2037,6 +2319,10 @@
           if (!norm(ad.name)) err(nm + ': an ad has no name.', ar);
           else if (seenA[key(ad.name)]) warn(nm + ': two ads are named "' + ad.name + '".', ar);
           seenA[key(ad.name)] = true;
+          if (ad.existingPost) {
+            warn(an + ': uses an existing Page post. The import file cannot pick a post, so create this ad in Ads Manager after import (it is on the after-import list).', Object.assign({ kind: 'manual' }, ar));
+            return;
+          }
           if (!norm(ad.primary)) err(an + ': add primary text.', Object.assign({ field: 'primary' }, ar));
           if (!norm(ad.headline) && !['on_ad', 'ig_live'].includes(loc)) warn(an + ': no headline.', Object.assign({ field: 'headline' }, ar));
           if (loc === 'on_ad' && c.engagementType === 'video_views' && ad.format !== 'video' && !ad.videoId) warn(an + ': video views campaigns need a video ad. Set the format to Video.', Object.assign({ field: 'fmt' }, ar));
@@ -2185,7 +2471,8 @@
           msPositions: pl && pl.positions.messenger ? pl.positions.messenger.join(', ') : '',
           anPositions: pl && pl.positions.audience_network ? pl.positions.audience_network.join(', ') : ''
         });
-        const ads = withAds ? model.ads.filter(x => x.adSetId === a.id) : [];
+        // existing-post ads are made in Ads Manager: the ad set row still goes in
+        const ads = withAds ? model.ads.filter(x => x.adSetId === a.id && !x.existingPost) : [];
         if (!ads.length) { rows.push(sRow); return; }
         ads.forEach(ad => {
           const x = adEff(ad, S, c);
@@ -2238,7 +2525,9 @@
         if (cities.length) items.push({ kind: 'cities', label: 'Check cities', values: cities.map(l => locLabel(l)) });
         if (S.scope !== 'structure') {
           const ads = model.ads.filter(x => x.adSetId === a.id);
-          const noMedia = ads.filter(x => !x.imageHash && !x.videoId);
+          const posts = ads.filter(x => x.existingPost);
+          if (posts.length) items.push({ kind: 'posts', label: 'Create these ads from existing Page posts (Ad setup: Use existing post)', values: posts.map(x => x.name + (x.format ? ' (' + x.format + ')' : '') + ((x.notes || []).length || x.media ? ': ' + norm((x.notes || []).concat(x.media ? [x.media] : []).join('. ').replace(/\.\s*\./g, '.')).slice(0, 200) : '')) });
+          const noMedia = ads.filter(x => !x.existingPost && !x.imageHash && !x.videoId);
           // video ads without a video ID import as link ads, so they are listed here too
           if (noMedia.length) items.push({ kind: 'media', label: 'Add creative', values: noMedia.map(x => x.name + (x.format ? ' (' + x.format + ')' : '') + (x.media ? ': ' + norm(x.media).slice(0, 120) : '')) });
         }
@@ -2247,6 +2536,7 @@
         if (c.conversionLocation === 'on_ad' && c.engagementType === 'reminders') items.push({ kind: 'event', label: 'Pick the event', values: ['Choose the upcoming event or live for reminders'] });
         if (c.conversionLocation === 'ig_live') items.push({ kind: 'event', label: 'Pick the live', values: ['Choose the scheduled Instagram live video'] });
         if (c.conversionLocation === 'messages' && (c.messageApps || []).includes('whatsapp')) items.push({ kind: 'whatsapp', label: 'WhatsApp', values: ['Check the WhatsApp number connected to the Page'] });
+        if ((a.settings || []).length) items.push({ kind: 'settings', label: 'Settings from the doc to set by hand', values: a.settings.map(x => x.label + ': ' + norm(x.value).slice(0, 160)) });
         if (items.length) out.push({ campaign: c.name, adSet: a.name, adSetId: a.id, items });
       });
     });

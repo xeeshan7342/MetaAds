@@ -286,7 +286,7 @@
   }
   function newAd(a, from) {
     const base = from || adsOf(a)[0] || {};
-    return { id: E.nid('a'), adSetId: a.id, name: 'Ad ' + (adsOf(a).length + 1), primary: '', headline: base.headline || '', description: base.description || '', cta: base.cta || '', url: base.url || '', displayLink: base.displayLink || '', urlTags: base.urlTags || '', format: base.format || '', media: '', imageHash: '', videoId: '' };
+    return { id: E.nid('a'), adSetId: a.id, name: 'Ad ' + (adsOf(a).length + 1), primary: '', headline: base.headline || '', description: base.description || '', cta: base.cta || '', url: base.url || '', displayLink: base.displayLink || '', urlTags: base.urlTags || '', format: base.format || '', media: '', imageHash: '', videoId: '', existingPost: !!base.existingPost, notes: [] };
   }
   function insertAd(ad) {
     const ix = state.model.ads.map(x => x.adSetId).lastIndexOf(ad.adSetId);
@@ -419,6 +419,7 @@
           '<div class="field"><label class="lbl" for="saud-' + a.id + '">Custom and lookalike audiences</label><textarea id="saud-' + a.id + '" class="list-area" data-f="audiences" spellcheck="false" placeholder="e.g. Website visitors (30 days)">' + esc(a.audiences.join('\n')) + '</textarea></div>' +
           '<div class="field"><label class="lbl" for="sexc-' + a.id + '">Exclude</label><textarea id="sexc-' + a.id + '" class="list-area" data-f="exclusions" spellcheck="false" placeholder="e.g. Purchasers (30 days)">' + esc(a.exclusions.join('\n')) + '</textarea></div>' +
           (a.notes && a.notes.length ? '<div class="doc-notes"><b>Audience in the doc</b>' + a.notes.map(n => '<span>' + esc(n) + '</span>').join('') + '</div>' : '') +
+          (a.settings && a.settings.length ? '<div class="doc-notes"><b>Set by hand after import</b>' + a.settings.map(x => '<span>' + esc(x.label) + ': ' + esc(x.value) + '</span>').join('') + '</div>' : '') +
         '</div>' +
       '</div>' +
       '<div class="ads">' + ads.map(ad => adHTML(ad, a, c)).join('') + '</div>' +
@@ -439,7 +440,19 @@
       '<div class="ad-fields">' +
         '<div class="ad-top"><input id="an-' + id + '" data-af="name" value="' + esc(ad.name) + '" aria-label="Ad name" autocomplete="off">' +
           '<div class="row"><button type="button" class="btn btn-ghost btn-sm" data-act="dup-ad">Duplicate</button><button type="button" class="x" data-act="del-ad" aria-label="Remove ' + esc(ad.name) + '">&times;</button></div></div>' +
-        '<div class="field"><div class="cnt-row"><label class="lbl" for="primary-' + id + '">Primary text</label>' + counter('primary-' + id, E.textLen(ad.primary), E.LIMITS.primary) + '</div>' +
+        '<label class="check"><input type="checkbox" id="ep-' + id + '" data-af="existingPost"' + (ad.existingPost ? ' checked' : '') + '><span>Use an existing Page post<small>The import file cannot pick a post, so this ad is made in Ads Manager after import.</small></span></label>' +
+        (ad.existingPost ? existingPostHTML(ad) : copyFieldsHTML(ad, c, id, fmt, defCta)) +
+      '</div>' +
+      '<div><div class="feed-label">Feed preview</div><div class="feed" data-feed>' + feedInner(ad, c) + '</div></div>' +
+    '</div>';
+  }
+  function existingPostHTML(ad) {
+    const notes = (ad.notes || []).concat(ad.media ? [ad.media] : []);
+    return '<div class="post-note"><span>After import, add this ad to the ad set in Ads Manager, choose <b>Use existing post</b> under Ad setup and pick the ' + (ad.format ? esc(ad.format) + ' ' : '') + 'post. It is on the after-import list.</span>' +
+      (notes.length ? '<span class="post-why">' + notes.map(esc).join('<br>') + '</span>' : '') + '</div>';
+  }
+  function copyFieldsHTML(ad, c, id, fmt, defCta) {
+    return '<div class="field"><div class="cnt-row"><label class="lbl" for="primary-' + id + '">Primary text</label>' + counter('primary-' + id, E.textLen(ad.primary), E.LIMITS.primary) + '</div>' +
           '<textarea id="primary-' + id + '" class="primary-area" data-af="primary" rows="4">' + esc(ad.primary) + '</textarea></div>' +
         '<div class="ad-grid">' +
           '<div class="field"><div class="cnt-row"><label class="lbl" for="headline-' + id + '">Headline</label>' + counter('headline-' + id, E.textLen(ad.headline), E.LIMITS.headline) + '</div><input id="headline-' + id + '" data-af="headline" value="' + esc(ad.headline) + '" autocomplete="off"></div>' +
@@ -453,10 +466,7 @@
             ? '<div class="field"><label class="lbl" for="vid-' + id + '">Video ID <span class="mono">optional</span></label><input id="vid-' + id + '" data-af="videoId" inputmode="numeric" value="' + esc(ad.videoId) + '" placeholder="From Media library" spellcheck="false"></div>'
             : '<div class="field"><label class="lbl" for="img-' + id + '">Image hash <span class="mono">optional</span></label><input id="img-' + id + '" data-af="imageHash" value="' + esc(ad.imageHash) + '" placeholder="From Media library" spellcheck="false"></div>') +
         '</div>' +
-        (ad.media ? '<div class="media-note">Creative in the doc: ' + esc(ad.media) + '</div>' : '') +
-      '</div>' +
-      '<div><div class="feed-label">Feed preview</div><div class="feed" data-feed>' + feedInner(ad, c) + '</div></div>' +
-    '</div>';
+        (ad.media ? '<div class="media-note">Creative in the doc: ' + esc(ad.media) + '</div>' : '');
   }
   function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return 'example.com'; } }
   const pageName = () => state.profileName || (state.model.title || '').replace(/\s*[–—|:-]\s*.*$/, '').trim() || 'Your Page';
@@ -468,6 +478,11 @@
     const shown = cut.length > E.LIMITS.primary ? cut.slice(0, E.LIMITS.primary).join('').replace(/\s+\S*$/, '') : text;
     const name = pageName();
     const fmt = ad.format === 'video' ? 'video' : ad.format === 'carousel' ? 'carousel' : 'image';
+    if (ad.existingPost) {
+      return '<div class="feed-head"><div class="feed-av">' + esc(name.charAt(0).toUpperCase() || 'P') + '</div><div><div class="feed-name">' + esc(name) + '</div><div class="feed-sp">Sponsored</div></div></div>' +
+        '<div class="feed-text"><span class="feed-sp">The Page post shows here exactly as published, with its reactions and comments.</span></div>' +
+        '<div class="feed-media ' + fmt + '">Existing post</div>';
+    }
     return '<div class="feed-head"><div class="feed-av">' + esc(name.charAt(0).toUpperCase() || 'P') + '</div><div><div class="feed-name">' + esc(name) + '</div><div class="feed-sp">Sponsored</div></div></div>' +
       '<div class="feed-text">' + (text ? esc(shown) + (shown !== text ? '<span class="more">… See more</span>' : '') : '<span class="feed-sp">Add primary text to preview</span>') + '</div>' +
       '<div class="feed-media ' + fmt + '">' + esc(fmt === 'carousel' ? 'Carousel' : fmt === 'video' ? 'Video' : 'Image') + '</div>' +
@@ -574,6 +589,7 @@
       if (t.dataset.af && aEl) {
         const ad = findAd(aEl.dataset.aid); const f = t.dataset.af;
         if (f === 'cta') { ad.cta = t.value; updateFeed(ad); refresh(); }
+        else if (f === 'existingPost') { ad.existingPost = t.checked; rerenderSet(findSet(ad.adSetId)); refresh(); }
         else if (f === 'format') { ad.format = t.value; if (t.value === 'video') ad.imageHash = ''; else ad.videoId = ''; rerenderSet(findSet(ad.adSetId)); refresh(); }
         return;
       }

@@ -32,7 +32,7 @@
   const SCHEMA = {
     type: 'object',
     $defs: {
-      ad: obj({ name: str, primary_text: str, headline: str, description: str, cta: str, url: str, format: FORMAT, creative_notes: str }),
+      ad: obj({ name: str, primary_text: str, headline: str, description: str, cta: str, url: str, format: FORMAT, creative_notes: str, existing_post: { type: 'boolean' } }),
       adSet: obj({
         name: str,
         budget_amount: numOrNull, budget_period: PERIOD,
@@ -84,7 +84,8 @@
     'Budgets: give the amount and the period the document states; not_stated when it does not say. budget_level is ad_set when the document gives each ad set its own budget (ABO), campaign for a campaign budget (CBO or Advantage campaign budget).',
     'Locations: one item per place exactly as written, with any radius, for example "Austin, TX + 10 mi" or "United Kingdom".',
     'Interests, custom audiences, lookalikes and exclusions: one item per audience as written. Put a lookalike in custom_audiences, for example "1% lookalike of purchasers".',
-    'Placements: the placements as written, for example "Instagram Feed and Stories" or "Advantage+ placements". Empty when not stated.',
+    'Placements: the placements that stay on, for example "Instagram Feed and Stories" or "Advantage+ placements". Leave out platforms and positions the document removes or unchecks. Empty when not stated.',
+    'existing_post is true for an ad the document builds from an existing Page or Instagram post (Use existing post, boost a post). Such ads have no new copy; put what the document says about the post in creative_notes.',
     'Only read Meta content. When the document also plans Google, Microsoft, LinkedIn, TikTok or other platforms, leave those sections out and list each once in unused_text. Keywords are Google content.',
     'When the document does not state something, use an empty string, an empty list, null or not_stated. Do not guess URLs, IDs or budgets.',
     'Put lines you could not place in unused_text with a short reason. Skip general strategy prose.',
@@ -110,7 +111,7 @@
         locations: ['string'], interests: ['string'], custom_audiences: ['string'], exclusions: ['string'],
         placements: 'string', optimization: 'string',
         primary_texts: ['string'], headlines: ['string'], descriptions: ['string'], cta: 'string', url: 'string',
-        ads: [{ name: 'string', primary_text: 'string', headline: 'string', description: 'string', cta: 'string', url: 'string', format: 'image|video|carousel|not_stated', creative_notes: 'string' }]
+        ads: [{ name: 'string', primary_text: 'string', headline: 'string', description: 'string', cta: 'string', url: 'string', format: 'image|video|carousel|not_stated', creative_notes: 'string', existing_post: false }]
       }]
     }],
     settings: { website_url: 'string', page_id: 'string', pixel_id: 'string', lead_form_id: 'string', url_parameters: 'string', cta: 'string', phone_number: 'string', app_store_url: 'string', app_id: 'string', locations: ['string'], age_min: 'integer or null', age_max: 'integer or null', gender: 'all|men|women|not_stated', placements: 'string' },
@@ -349,6 +350,7 @@
           put(ad, 'url', x.url);
           if (stated(x.format)) put(ad, 'format', x.format);
           if (E.norm(x.creative_notes)) put(ad, 'media', x.creative_notes);
+          if (x.existing_post === true) ad.f.existingPost = true;
         });
       });
     });
