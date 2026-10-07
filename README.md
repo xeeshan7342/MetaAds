@@ -36,7 +36,7 @@ Word (.docx), Excel (.xlsx, every visible tab), CSV and TSV, text and Markdown. 
 - Campaign settings: budgets (daily, monthly, weekly or lifetime, at campaign or ad set level, in any currency format), special ad category, bid strategy (`Cost cap $25`), conversion event, start and end dates, Page, pixel and lead form IDs, and UTM parameters.
 - Shared targeting written once for the whole account, or for one campaign, applies to every ad set that does not set its own.
 - Docs written as settings tables, one section per level (`Campaign level settings`, `Ad set level settings`, `Ad level settings`). A `Level | Name | Purpose` table names the campaign, ad set and ads, and the settings sections below it fill them in. Placement tables with a Keep/Remove column keep only the rows marked Keep, and lines such as `Facebook only. Instagram and Audience Network unchecked` leave the unchecked platforms out.
-- Ads built from an existing Page or Instagram post (`Ad setup: Use existing post`, `ExistingPost` in the ad name). They need no copy in the doc.
+- Ads built from an existing Page or Instagram post (`Ad setup: Use existing post`, `ExistingPost` in the ad name, or a `Post ID` column). They need no copy in the doc.
 - Blanks such as `[Client Page name]` or `[date]` are listed once at the top instead of being read as values, and a note in brackets is treated as advice: `None (select one only if the Page covers housing…)` means no special ad category.
 - Answers copied from ChatGPT or Claude (icons, bold labels, `---` rules).
 
@@ -74,7 +74,7 @@ The import file cannot carry everything. Interests, custom audiences, lookalikes
 - **Bid strategy.** Ads Manager rejected the bid strategy column on import, so the file leaves it at the default (Highest volume). A cost cap, bid cap or ROAS goal from the doc goes on the list with its amount.
 - **Cities.** Ads Manager can fail to match a city name, and then the ad set keeps only the country. Every city goes on the list so you can check it.
 - **Videos.** A video ad without a video ID is rejected as "Missing video", so it imports as a link ad and the video goes on the list.
-- **Existing posts.** The import file cannot point an ad at a Page post, so these ads are left out of the file (their ad set still imports) and listed by name, with what the doc says about each post. In Ads Manager, add the ad, choose **Use existing post** under Ad setup and pick the post.
+- **Existing posts without a post ID.** An existing-post ad goes in the file when it has its post ID (from the doc or the ad card). It is written the way Ads Manager's own export writes it: `Story ID` as `s:` plus the post ID, `Creative Type` as Photo Page Post Ad or Video Page Post Ad from the post type, and the Page in `Link Object ID`. The post must be published by that Page. An ad without a post ID stays out of the file (its ad set still imports) and goes on this list with what the doc says about the post. In Ads Manager, add the ad, choose **Use existing post** under Ad setup and pick the post.
 - **Settings with no import column.** Advantage+ audience, Advantage+ creative enhancements, multi-advertiser ads, text translation, brand safety, A/B tests and similar settings from the doc are listed so you can set them by hand.
 - **Events and lives.** Event response, reminder and Instagram live ads need the event or live picked in Ads Manager. The tool keeps these on an **After import** list per ad set, with every interest and audience name from the doc, so nothing gets lost. Download or copy it, and work through it before turning ads on. If you already have an image hash or video ID from the media library, paste it on the ad and it goes into the file.
 
@@ -90,7 +90,7 @@ If Ads Manager says **Not allowed to publish imported ads** (error #3738001), th
 
 Call ads take the phone number from Account defaults (or the campaign), and app ads take the App Store or Google Play link and app ID. Those fields appear once a campaign needs them.
 
-The file uses Ads Manager's import column names (`Campaign Objective`, `Ad Set Run Status`, `Body`, `Title`, `Link Object ID` and so on) with one row per ad. Meta changes its template from time to time, so for a new ad account either import one campaign first, or download the blank template from Ads Manager's import screen and load it under **Your Ads Manager template**. The export then uses that template's exact column names and order, and the tool tells you about any data the template has no column for.
+The file uses Ads Manager's import column names (`Campaign Objective`, `Ad Set Run Status`, `Body`, `Title`, `Link Object ID`, `Story ID` and so on) with one row per ad. A real Ads Manager export confirmed the `o:` Page prefix, `s:` post prefix, `Destination Type` values such as ON_POST, month-first dates and two-letter country codes. Meta changes its template from time to time, so for a new ad account either import one campaign first, or download the blank template from Ads Manager's import screen and load it under **Your Ads Manager template**. The export then uses that template's exact column names and order, and the tool tells you about any data the template has no column for.
 
 ## Development
 

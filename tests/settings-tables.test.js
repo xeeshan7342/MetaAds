@@ -166,3 +166,46 @@ test('an ad named "ExistingPost" is an existing-post ad, however the doc lists i
     ['Image01_NewAd', false, 'image']
   ]);
 });
+
+test('existing-post ads with a post ID go in the file as Story ID, the way Ads Manager exports them', () => {
+  assert.equal(E.postIdOf('122115687656432835'), '122115687656432835');
+  assert.equal(E.postIdOf('s:122115687656432835'), '122115687656432835');
+  assert.equal(E.postIdOf('1106712235857730_122115687656432835'), '122115687656432835');
+  assert.equal(E.postIdOf('https://www.facebook.com/examplepage/posts/122115687656432835'), '122115687656432835');
+  assert.equal(E.postIdOf('https://www.facebook.com/61562985063632/posts/pfbid0FnpZRK5jPycD9b'), '', 'pfbid links do not carry the number');
+  const m = parseText([
+    '# Campaign: Post Boost',
+    'Objective: Engagement',
+    'Daily budget: $20',
+    '## US Broad',
+    'Location: US',
+    '| Ad name | Post type | Post ID |',
+    '|---|---|---|',
+    '| Weekend reset | Photo | 122115687656432835 |',
+    '| Wellness reel | Video | s:122116648190432835 |',
+    '| Question post | | |'
+  ].join('\n'));
+  const ads = m.ads;
+  assert.deepEqual(ads.map(x => [x.name, x.existingPost, x.postId, x.format]), [
+    ['Weekend reset', true, '122115687656432835', 'image'],
+    ['Wellness reel', true, '122116648190432835', 'video'],
+    ['Question post', false, '', '']
+  ]);
+  ads[2].existingPost = true; // ticked on the card, no post ID yet
+  const S = settings();
+  const v = E.validate(m, S, '2026-10-07');
+  assert.deepEqual(v.errors.map(e => e.msg), []);
+  assert.ok(v.warnings.some(w => /Question post: uses an existing Page post\. Add its post ID/.test(w.msg)));
+  const t = E.exportTable(m, S);
+  const rows = t.rows.map(r => Object.fromEntries(t.headers.map((h, i) => [h, r[i]])));
+  assert.equal(rows.length, 2, 'the ad without a post ID stays out');
+  assert.deepEqual(rows.map(r => [r['Ad Name'], r['Story ID'], r['Creative Type'], r['Link Object ID']]), [
+    ['Weekend reset', 's:122115687656432835', 'Photo Page Post Ad', 'o:104455667788990'],
+    ['Wellness reel', 's:122116648190432835', 'Video Page Post Ad', 'o:104455667788990']
+  ]);
+  assert.ok(!t.headers.includes('Body') && !t.headers.includes('Title') && !t.headers.includes('Link'), 'the post brings its own text and link');
+  const posts = E.checklist(m, S)[0].items.find(i => i.kind === 'posts');
+  assert.deepEqual(posts.values.map(x => x.split(':')[0]), ['Question post']);
+  // a post ID needs the Page it was published on
+  assert.ok(E.validate(m, settings({ pageId: '' }), '2026-10-07').errors.some(e => /Page ID/.test(e.msg)));
+});

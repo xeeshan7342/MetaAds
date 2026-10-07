@@ -257,6 +257,7 @@
     ['urlTags', /^(?:url\s+(?:parameters|tags|params)|utms?|utm\s+(?:parameters|tags|codes?|params)|tracking(?:\s+(?:parameters|template))?)$/],
     ['format', /^(?:(?:creative\s+)?format|creative\s+type|media\s+type|post\s+(?:type|format)|ad\s+(?:type|format))$/],
     ['media', /^(?:image|video|visual|media|asset|creative(?:\s+(?:asset|file|concept|idea|direction|notes?|description))?|image\s+(?:hash|file)|video\s+(?:id|file)|visuals?|imagery|design|thumbnail)$/],
+    ['postId', /^(?:(?:page|facebook|fb|instagram|ig|existing)\s+)?(?:post|story)\s+(?:id|link|url)$/],
     // settings the import file has no column for: they go on the after-import list
     ['setting', /^(?:buying\s+type|a\s*b\s+test(?:ing)?|split\s+test(?:ing)?|advantage\s+(?:audience|creative(?:\s+enhancements?)?|shopping(?:\s+campaign)?)|(?:standard\s+)?creative\s+enhancements?|multi\s+advertiser(?:\s+ads?)?|translate\s+text|(?:text\s+)?translations?|brand\s+safety|inventory\s+filter|block\s+lists?|identity|ad\s+(?:setup|creation|source)|instagram\s+(?:account|profile)|attribution(?:\s+(?:setting|window|model))?|frequency(?:\s+cap(?:ping)?)?|dynamic\s+creative|site\s+links|value\s+rules|audience\s+suggestions?|campaign\s+spending\s+limit|spending\s+limit|budget\s+scheduling|placement\s+controls|(?:website|app|offline)\s+events|beneficiary|payer|delivery\s+type)$/],
     ['keywords', /^(?:negative\s+)?key\s?words?$/]
@@ -265,6 +266,13 @@
   const IGNORE_LABEL = /^(?:structure|campaign\s+structure|account\s+structure|naming(?:\s+conventions?)?|why|reason|rationale|purpose|notes?|comments?|tips?)$/;
   // "Use existing post", "Existing Facebook Page posts", "Ad01_ExistingPost_Image"
   const EXISTING_POST = /existing[\s_-]*(?:(?:page|facebook|fb|instagram|ig|organic)[\s_-]+)*posts?|use\s+(?:an?\s+)?existing\b|boost(?:ed|ing)?\s+(?:the\s+|a\s+|an\s+)?(?:page\s+|organic\s+)?posts?/i;
+  // The post an existing-post ad runs: "122115687656432835", "s:1221…", "1106712235857730_1221…" or a /posts/123… link.
+  // Ads Manager exports it as Story ID "s:" + the post's own ID, so that is the form kept.
+  function postIdOf(v) {
+    const t = norm(v).replace(/^s:/i, '');
+    const m = t.match(/\/posts\/(\d{5,25})\b/) || t.match(/story_fbid=(\d{5,25})/) || t.match(/^(?:\d{5,25}_)?(\d{5,25})$/);
+    return m ? m[1] : '';
+  }
   // a value that is only a placeholder: "[Client Page name]", "[date]"
   const PLACEHOLDER = /\[[^\]]{1,60}\]/;
   const onlyPlaceholder = v => /^\s*\[[^\]]{1,60}\]\s*$/.test(String(v).replace(/\([^)]*\)/g, ''));
@@ -1234,6 +1242,13 @@
       case 'campaignName': case 'adSetName': case 'adName':
         node.name = cleanName(v) || node.name;
         return !!v;
+      case 'postId': {
+        const id = postIdOf(v);
+        if (!id) return false;
+        f.postId = id;
+        f.existingPost = true;
+        return true;
+      }
       case 'setting': {
         const lk = labelKey(srcLabel);
         if (!v) return false;
@@ -2095,7 +2110,7 @@
           urlTags: pick('urlTags', n, sn, cn) || '', format: pick('format', n, sn, cn) || '', media: pick('media', n, sn) || '',
           imageHash: pick('imageHash', n) || '', videoId: pick('videoId', n) || '',
           // "Video01_ExistingPost": the name alone says the ad runs an existing post
-          existingPost: !!pick('existingPost', n, sn, cn, acct) || !!(n && EXISTING_POST.test(n.name || '')), notes: n ? n.l.notes.slice() : []
+          existingPost: !!pick('existingPost', n, sn, cn, acct) || !!(n && (EXISTING_POST.test(n.name || '') || n.f.postId)), postId: pick('postId', n) || '', notes: n ? n.l.notes.slice() : []
         });
         if (own.length) {
           own.forEach((an, k) => {
@@ -2202,6 +2217,8 @@
   // website conversions need the pixel; app events use the app instead
   const needsPixel = (camp, as) => ['OFFSITE_CONVERSIONS', 'VALUE'].includes(goalFor(camp, as)) && camp.conversionLocation !== 'app';
   const needsUrl = (camp, as) => camp.conversionLocation === 'website' || (!camp.conversionLocation && ['TRAFFIC', 'LEADS', 'SALES'].includes(camp.objective));
+  // an ad goes in the import file unless it runs an existing post the doc gave no post ID for
+  const inFile = ad => !ad.existingPost || !!postIdOf(ad.postId);
   // destination_type for the ad set, from the conversion location
   function destinationFor(c, a) {
     switch (c.conversionLocation) {
@@ -2231,8 +2248,8 @@
     const warn = (msg, ref) => warnings.push(Object.assign({ msg }, ref || {}));
     const withAds = S.scope !== 'structure';
     if (!model.campaigns.length) err('No campaigns. Load a doc or add a campaign.');
-    // ads made from an existing Page post are created in Ads Manager, so they need no Page ID, copy or media here
-    const fileAds = model.ads.filter(x => !x.existingPost);
+    // existing-post ads without a post ID are made in Ads Manager, so they need no Page ID, copy or media here
+    const fileAds = model.ads.filter(inFile);
     if (withAds && fileAds.length) {
       if (!S.pageId) err('Add your Facebook Page ID under Account defaults. Every ad runs from a Page.', { field: 'pageId' });
       else if (!digits(S.pageId)) err('The Page ID should be the number from your Page\'s About section or Business settings.', { field: 'pageId' });
@@ -2322,7 +2339,10 @@
           else if (seenA[key(ad.name)]) warn(nm + ': two ads are named "' + ad.name + '".', ar);
           seenA[key(ad.name)] = true;
           if (ad.existingPost) {
-            warn(an + ': uses an existing Page post. The import file cannot pick a post, so create this ad in Ads Manager after import (it is on the after-import list).', Object.assign({ kind: 'manual' }, ar));
+            if (!norm(ad.postId)) { warn(an + ': uses an existing Page post. Add its post ID to put it in the import file, or create this ad in Ads Manager after import (it is on the after-import list).', Object.assign({ kind: 'manual', field: 'postId' }, ar)); return; }
+            if (!postIdOf(ad.postId)) { err(an + ': the post ID should be the post\'s number, for example 122115687656432835 (the Story ID column of an Ads Manager export, without "s:").', Object.assign({ field: 'postId' }, ar)); return; }
+            if (PLACEHOLDER.test(ad.name)) warn(an + ': the name still has a placeholder. Replace it before import.', ar);
+            if (!['image', 'video'].includes(ad.format)) warn(an + ': set the format to Single image or Video to match the post, so the file can name its creative type.', Object.assign({ field: 'fmt' }, ar));
             return;
           }
           if (!norm(ad.primary)) err(an + ': add primary text.', Object.assign({ field: 'primary' }, ar));
@@ -2387,6 +2407,7 @@
     ['igPositions', 'Instagram Positions'],
     ['msPositions', 'Messenger Positions'],
     ['anPositions', 'Audience Network Positions'],
+    ['storyId', 'Story ID', ['post id']],
     ['adName', 'Ad Name'],
     ['adStatus', 'Ad Status'],
     ['creativeType', 'Creative Type'],
@@ -2473,10 +2494,20 @@
           msPositions: pl && pl.positions.messenger ? pl.positions.messenger.join(', ') : '',
           anPositions: pl && pl.positions.audience_network ? pl.positions.audience_network.join(', ') : ''
         });
-        // existing-post ads are made in Ads Manager: the ad set row still goes in
-        const ads = withAds ? model.ads.filter(x => x.adSetId === a.id && !x.existingPost) : [];
+        // existing-post ads without a post ID are made in Ads Manager: the ad set row still goes in
+        const ads = withAds ? model.ads.filter(x => x.adSetId === a.id && inFile(x)) : [];
         if (!ads.length) { rows.push(sRow); return; }
         ads.forEach(ad => {
+          if (ad.existingPost) {
+            // the post brings its own text, media and link; Meta's export writes these columns for it
+            rows.push(Object.assign({}, sRow, {
+              adName: ad.name, adStatus: status,
+              creativeType: ad.format === 'video' ? 'Video Page Post Ad' : ad.format === 'image' ? 'Photo Page Post Ad' : '',
+              pageId: prefixed('o', S.pageId),
+              storyId: 's:' + postIdOf(ad.postId)
+            }));
+            return;
+          }
           const x = adEff(ad, S, c);
           const loc = c.conversionLocation;
           rows.push(Object.assign({}, sRow, {
@@ -2527,7 +2558,7 @@
         if (cities.length) items.push({ kind: 'cities', label: 'Check cities', values: cities.map(l => locLabel(l)) });
         if (S.scope !== 'structure') {
           const ads = model.ads.filter(x => x.adSetId === a.id);
-          const posts = ads.filter(x => x.existingPost);
+          const posts = ads.filter(x => x.existingPost && !inFile(x));
           if (posts.length) items.push({ kind: 'posts', label: 'Create these ads from existing Page posts (Ad setup: Use existing post)', values: posts.map(x => x.name + (x.format ? ' (' + x.format + ')' : '') + ((x.notes || []).length || x.media ? ': ' + norm((x.notes || []).concat(x.media ? [x.media] : []).join('. ').replace(/\.\s*\./g, '.')).slice(0, 200) : '')) });
           const noMedia = ads.filter(x => !x.existingPost && !x.imageHash && !x.videoId);
           // video ads without a video ID import as link ads, so they are listed here too
@@ -2562,7 +2593,7 @@
     splitList, locLabel, locCountry, countryName, findCountry, COUNTRIES,
     parseBlocks, buildModel, parseBlocksToModel, parseHTML, parseText, newResult, newNode, putField, deriveName,
     OBJECTIVES, objectiveLabel, EVENTS, GOALS, goalsFor, goalLabel, LOCATIONS, LOCATIONS_BY_OBJECTIVE, DEFAULT_LOCATION, locationLabel, ENGAGEMENT_TYPES, MESSAGE_APPS, BID_STRATEGIES, SPECIAL, CTAS, ctaLabel, POSITIONS, PLATFORM_LABEL, LIMITS,
-    goalFor, eventFor, needsPixel, needsUrl, destinationFor, defaultCta, setEff, adEff, isUrl,
+    goalFor, eventFor, needsPixel, needsUrl, destinationFor, defaultCta, setEff, adEff, isUrl, postIdOf, inFile,
     validate, COLUMNS, mapTemplate, exportTable, toCSV, toTSV, checklist, checklistText
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

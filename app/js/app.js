@@ -286,7 +286,7 @@
   }
   function newAd(a, from) {
     const base = from || adsOf(a)[0] || {};
-    return { id: E.nid('a'), adSetId: a.id, name: 'Ad ' + (adsOf(a).length + 1), primary: '', headline: base.headline || '', description: base.description || '', cta: base.cta || '', url: base.url || '', displayLink: base.displayLink || '', urlTags: base.urlTags || '', format: base.format || '', media: '', imageHash: '', videoId: '', existingPost: !!base.existingPost, notes: [] };
+    return { id: E.nid('a'), adSetId: a.id, name: 'Ad ' + (adsOf(a).length + 1), primary: '', headline: base.headline || '', description: base.description || '', cta: base.cta || '', url: base.url || '', displayLink: base.displayLink || '', urlTags: base.urlTags || '', format: base.format || '', media: '', imageHash: '', videoId: '', existingPost: !!base.existingPost, postId: '', notes: [] };
   }
   function insertAd(ad) {
     const ix = state.model.ads.map(x => x.adSetId).lastIndexOf(ad.adSetId);
@@ -440,15 +440,24 @@
       '<div class="ad-fields">' +
         '<div class="ad-top"><input id="an-' + id + '" data-af="name" value="' + esc(ad.name) + '" aria-label="Ad name" autocomplete="off">' +
           '<div class="row"><button type="button" class="btn btn-ghost btn-sm" data-act="dup-ad">Duplicate</button><button type="button" class="x" data-act="del-ad" aria-label="Remove ' + esc(ad.name) + '">&times;</button></div></div>' +
-        '<label class="check"><input type="checkbox" id="ep-' + id + '" data-af="existingPost"' + (ad.existingPost ? ' checked' : '') + '><span>Use an existing Page post<small>The import file cannot pick a post, so this ad is made in Ads Manager after import.</small></span></label>' +
-        (ad.existingPost ? existingPostHTML(ad) : copyFieldsHTML(ad, c, id, fmt, defCta)) +
+        '<label class="check"><input type="checkbox" id="ep-' + id + '" data-af="existingPost"' + (ad.existingPost ? ' checked' : '') + '><span>Use an existing Page post<small>The ad runs a post already on the Page, with its likes and comments. No new copy needed.</small></span></label>' +
+        (ad.existingPost ? existingPostHTML(ad, id, fmt) : copyFieldsHTML(ad, c, id, fmt, defCta)) +
       '</div>' +
       '<div><div class="feed-label">Feed preview</div><div class="feed" data-feed>' + feedInner(ad, c) + '</div></div>' +
     '</div>';
   }
-  function existingPostHTML(ad) {
+  function postNote(ad) {
+    return E.inFile(ad)
+      ? 'This ad goes in the import file with the post attached (Story ID s:' + esc(E.postIdOf(ad.postId)) + '). The post must be published by the Page in Account defaults.'
+      : 'With no post ID, this ad stays out of the file. After import, add it to the ad set in Ads Manager, choose <b>Use existing post</b> under Ad setup and pick the post. It is on the after-import list.';
+  }
+  function existingPostHTML(ad, id, fmt) {
     const notes = (ad.notes || []).concat(ad.media ? [ad.media] : []);
-    return '<div class="post-note"><span>After import, add this ad to the ad set in Ads Manager, choose <b>Use existing post</b> under Ad setup and pick the ' + (ad.format ? esc(ad.format) + ' ' : '') + 'post. It is on the after-import list.</span>' +
+    return '<div class="ad-grid">' +
+        '<div class="field"><label class="lbl" for="postId-' + id + '">Post ID <span class="mono">optional</span></label><input id="postId-' + id + '" data-af="postId" inputmode="numeric" value="' + esc(ad.postId || '') + '" placeholder="e.g. 122115687656432835" spellcheck="false" autocomplete="off"></div>' +
+        '<div class="field"><label class="lbl" for="fmt-' + id + '">Post type</label><select id="fmt-' + id + '" data-af="format">' + opt('', 'Not set', fmt) + opt('image', 'Photo', fmt) + opt('video', 'Video', fmt) + '</select></div>' +
+      '</div>' +
+      '<div class="post-note"><span data-postnote>' + postNote(ad) + '</span>' +
       (notes.length ? '<span class="post-why">' + notes.map(esc).join('<br>') + '</span>' : '') + '</div>';
   }
   function copyFieldsHTML(ad, c, id, fmt, defCta) {
@@ -539,6 +548,12 @@
       const aEl = t.closest('[data-aid]');
       if (t.dataset.af && aEl) {
         const ad = findAd(aEl.dataset.aid); const f = t.dataset.af;
+        if (f === 'postId') {
+          ad.postId = t.value.trim();
+          const n = $('[data-postnote]', aEl); if (n) n.innerHTML = postNote(ad);
+          state.dirty = true; refresh();
+          return;
+        }
         if (['name', 'primary', 'headline', 'description', 'url', 'imageHash', 'videoId'].includes(f)) {
           ad[f] = f === 'primary' ? t.value : t.value.trim();
           if (f === 'primary' || f === 'headline' || f === 'description') updateCounter(f + '-' + ad.id, E.textLen(t.value), E.LIMITS[f]);
@@ -667,7 +682,7 @@
       if (!aEl) return;
       const ad = findAd(aEl.dataset.aid);
       if (act === 'dup-ad') {
-        const copy = Object.assign(clone(ad), { id: E.nid('a'), name: ad.name + ' copy' });
+        const copy = Object.assign(clone(ad), { id: E.nid('a'), name: ad.name + ' copy', postId: '' });
         m.ads.splice(m.ads.indexOf(ad) + 1, 0, copy); state.dirty = true; rerenderSet(a); refresh();
         const n = $('#an-' + copy.id); if (n) { n.focus(); n.select(); }
         return;
