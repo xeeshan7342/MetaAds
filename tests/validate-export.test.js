@@ -80,7 +80,9 @@ test('export rows: one row per ad, parent columns repeated, Meta values', () => 
   assert.equal(r0[col('Link Object ID')], 'o:104455667788990');
   assert.equal(r0[col('Creative Type')], 'Link Page Post Ad', 'a video ad with no video ID goes in as a link ad, not as "Missing video"');
   assert.equal(r0[col('Destination Type')], 'WEBSITE');
-  assert.ok(!t.headers.includes('Campaign Bid Strategy') && !t.headers.includes('Ad Set Bid Strategy'), 'bid strategy is left to Ads Manager\'s default');
+  const bid = [col('Campaign Bid Strategy'), col('Ad Set Bid Strategy')].filter(i => i >= 0).map(i => r0[i]).filter(Boolean);
+  assert.deepEqual(bid, ['Highest volume or value'], 'one bid strategy column per row, in Ads Manager\'s export wording');
+  assert.ok(!t.headers.includes('Bid Amount'));
   assert.equal(r0[col('Call to Action')], 'SHOP_NOW');
   const lead = t.rows[4];
   assert.equal(lead[col('Optimization Goal')], 'LEAD_GENERATION');

@@ -27,7 +27,7 @@ Word (.docx), Excel (.xlsx, every visible tab), CSV and TSV, text and Markdown. 
 - Every objective with the conversion locations Ads Manager offers for it:
   - **Awareness:** reach, impressions, ad recall lift, ThruPlay and 2-second video plays.
   - **Traffic:** website, app, message destinations, Instagram or Facebook profile, calls.
-  - **Engagement:** on your ad (post engagement, video views, event responses, reminders set), message destinations (Messenger, Instagram, WhatsApp), Instagram live video, calls, website, app, Instagram or Facebook (Page or profile visits).
+  - **Engagement:** on your ad (interactions, video views, event responses, reminders set), message destinations (Messenger, Instagram, WhatsApp), Instagram live video, calls, website, app, Instagram or Facebook (Page or profile visits).
   - **Leads:** website, instant forms, message destinations, calls, app.
   - **App promotion:** app installs and app events.
   - **Sales:** website, app, message destinations, calls.
@@ -71,7 +71,7 @@ Warnings don't block export: primary text over 125 characters, headlines over 40
 
 The import file cannot carry everything. Interests, custom audiences, lookalikes and exclusions need Meta's own audience IDs, and images and videos have to be in the account's media library. Some settings are also safer to set by hand, based on test imports:
 
-- **Bid strategy.** Ads Manager rejected the bid strategy column on import, so the file leaves it at the default (Highest volume). A cost cap, bid cap or ROAS goal from the doc goes on the list with its amount.
+- **Bid strategy.** The file sets Highest volume, written `Highest volume or value` as in Ads Manager's own export (in `Ad Set Bid Strategy` for ad set budgets, `Campaign Bid Strategy` for campaign budgets). A blank column can leave the ad set on a strategy that needs an amount, which fails with "Bid amount or bid constraints required". A cost cap, bid cap or ROAS goal from the doc goes on the list with its amount.
 - **Cities.** Ads Manager can fail to match a city name, and then the ad set keeps only the country. Every city goes on the list so you can check it.
 - **Videos.** A video ad without a video ID is rejected as "Missing video", so it imports as a link ad and the video goes on the list.
 - **Existing posts without a post ID.** An existing-post ad goes in the file when it has its post ID (from the doc or the ad card). It is written the way Ads Manager's own export writes it: `Story ID` as `s:` plus the post ID, `Creative Type` as Photo Page Post Ad or Video Page Post Ad from the post type, and the Page in `Link Object ID`. The post must be published by that Page. An ad without a post ID stays out of the file (its ad set still imports) and goes on this list with what the doc says about the post. In Ads Manager, add the ad, choose **Use existing post** under Ad setup and pick the post.

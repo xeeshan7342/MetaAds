@@ -126,12 +126,14 @@ test('export rows for call, app, message and awareness campaigns', () => {
   assert.equal(r('Optimized Conversion Tracking Pixels'), undefined);
 });
 
-test('a non-default bid strategy goes on the after-import list instead of into the file', () => {
+test('a non-default bid strategy goes on the after-import list; the file sets Highest volume', () => {
   const m = one('Sales', ['Bid strategy: Cost cap $25']);
   const v = E.validate(m, settings(), TODAY);
   assert.ok(v.warnings.some(w => /Set Cost per result goal at 25 after import/.test(w.msg)));
   const t = E.exportTable(m, settings(), null);
-  assert.ok(!t.headers.includes('Campaign Bid Strategy') && !t.headers.includes('Bid Amount'));
+  // the wording Ads Manager's own export uses; a blank column can fail with "Bid amount or bid constraints required"
+  assert.equal(t.rows[0][t.headers.indexOf('Campaign Bid Strategy')], 'Highest volume or value');
+  assert.ok(!t.headers.includes('Ad Set Bid Strategy') && !t.headers.includes('Bid Amount'));
   const list = E.checklist(m, settings());
   assert.deepEqual(list[0].items.find(i => i.kind === 'bid').values, ['Cost per result goal: 25 on the campaign']);
 });

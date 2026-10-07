@@ -713,7 +713,7 @@
     });
     $('#reportPanel').addEventListener('change', e => { const s = e.target.closest('select[data-rep]'); if (s && s.value) onReportChoice(s); });
   }
-  // A new conversion location brings its own defaults: Post engagement for "On your ad", Messenger and Instagram for messages
+  // A new conversion location brings its own defaults: Interactions for "On your ad", Messenger and Instagram for messages
   function setLocation(c, loc) {
     c.conversionLocation = loc;
     c.engagementType = loc === 'on_ad' ? (c.engagementType || 'interactions') : '';

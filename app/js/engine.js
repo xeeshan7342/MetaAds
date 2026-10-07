@@ -481,7 +481,7 @@
   const DEFAULT_LOCATION = { TRAFFIC: 'website', ENGAGEMENT: 'on_ad', LEADS: 'website', APP_PROMOTION: 'app', SALES: 'website' };
   const locationLabel = k => (LOCATIONS.find(l => l[0] === k) || [, ''])[1];
   // "On your ad" engagement types
-  const ENGAGEMENT_TYPES = [['interactions', 'Post engagement'], ['video_views', 'Video views'], ['event_responses', 'Event responses'], ['reminders', 'Reminders set']];
+  const ENGAGEMENT_TYPES = [['interactions', 'Interactions (post engagement)'], ['video_views', 'Video views'], ['event_responses', 'Event responses'], ['reminders', 'Reminders set']];
   const MESSAGE_APPS = [['messenger', 'Messenger'], ['instagram', 'Instagram'], ['whatsapp', 'WhatsApp']];
 
   function parseConversionLocation(v) {
@@ -536,7 +536,7 @@
     REACH: 'Maximise reach of ads', IMPRESSIONS: 'Maximise number of impressions', AD_RECALL_LIFT: 'Maximise ad recall lift',
     THRUPLAY: 'Maximise ThruPlay views', TWO_SECOND_CONTINUOUS_VIDEO_VIEWS: 'Maximise 2-second continuous video plays',
     LANDING_PAGE_VIEWS: 'Maximise number of landing page views', LINK_CLICKS: 'Maximise number of link clicks',
-    POST_ENGAGEMENT: 'Maximise engagement with a post', EVENT_RESPONSES: 'Maximise number of event responses', REMINDERS_SET: 'Maximise number of reminders set',
+    POST_ENGAGEMENT: 'Maximise interactions (engagement with a post)', EVENT_RESPONSES: 'Maximise number of event responses', REMINDERS_SET: 'Maximise number of reminders set',
     CONVERSATIONS: 'Maximise number of conversations', QUALITY_CALL: 'Maximise number of calls',
     PROFILE_VISIT: 'Maximise number of Facebook Page visits', VISIT_INSTAGRAM_PROFILE: 'Maximise number of Instagram profile visits',
     OFFSITE_CONVERSIONS: 'Maximise number of conversions', VALUE: 'Maximise value of conversions',
@@ -556,7 +556,7 @@
     SALES: { website: ['OFFSITE_CONVERSIONS', 'VALUE'].concat(WEB), app: ['OFFSITE_CONVERSIONS', 'VALUE', 'LINK_CLICKS'], messages: ['CONVERSATIONS', 'OFFSITE_CONVERSIONS'], calls: ['QUALITY_CALL'] }
   };
   const ON_AD_GOALS = {
-    interactions: ['POST_ENGAGEMENT', 'REACH', 'IMPRESSIONS'], video_views: ['THRUPLAY', 'TWO_SECOND_CONTINUOUS_VIDEO_VIEWS'],
+    interactions: ['POST_ENGAGEMENT'], video_views: ['THRUPLAY', 'TWO_SECOND_CONTINUOUS_VIDEO_VIEWS'],
     event_responses: ['EVENT_RESPONSES', 'POST_ENGAGEMENT'], reminders: ['REMINDERS_SET']
   };
   // The performance goals Ads Manager offers for this campaign's objective, conversion location and engagement type
@@ -2277,7 +2277,7 @@
       if (loc === 'app' && !S.appId) warn(c.name + ': no app ID. Ads Manager may ask you to pick the app after import.', ref);
       if (loc === 'on_ad' && ['event_responses', 'reminders'].includes(c.engagementType)) warn(c.name + ': ' + (c.engagementType === 'event_responses' ? 'event response ads promote a Facebook event' : 'reminder ads promote an upcoming event or live') + '. Pick it in Ads Manager after import.', Object.assign({ kind: 'manual' }, ref));
       if (loc === 'ig_live') warn(c.name + ': Instagram live video ads run on a scheduled live. Pick it in Ads Manager after import.', Object.assign({ kind: 'manual' }, ref));
-      if (c.bidStrategy && c.bidStrategy !== 'LOWEST_COST_WITHOUT_CAP') warn(c.name + ': the import file leaves bid strategy at Highest volume, because Ads Manager rejects that column on import. Set ' + BID_LABEL(c.bidStrategy) + (c.bidAmount ? ' at ' + c.bidAmount : '') + ' after import.', Object.assign({ kind: 'manual' }, ref));
+      if (c.bidStrategy && c.bidStrategy !== 'LOWEST_COST_WITHOUT_CAP') warn(c.name + ': the import file sets bid strategy to Highest volume, the one setting confirmed to import. Set ' + BID_LABEL(c.bidStrategy) + (c.bidAmount ? ' at ' + c.bidAmount : '') + ' after import.', Object.assign({ kind: 'manual' }, ref));
       if (!sets.length) err(c.name + ': no ad sets.', ref);
       if (c.budgetLevel === 'campaign') {
         if (!c.budget || !(+c.budget.amount > 0)) err(c.name + ': add a campaign budget, or switch to ad set budgets.', Object.assign({ field: 'budget' }, ref));
@@ -2454,8 +2454,10 @@
         buyingType: 'AUCTION',
         campaignDaily: c.budgetLevel === 'campaign' && c.budget && c.budget.period === 'daily' ? money(c.budget.amount) : '',
         campaignLifetime: c.budgetLevel === 'campaign' && c.budget && c.budget.period === 'lifetime' ? money(c.budget.amount) : '',
-        // left blank: Ads Manager rejects this column on import, and blank means Highest volume
-        campaignBid: '',
+        // Ads Manager's own export writes the default as "Highest volume or value". Left blank, an import can
+        // pick up a strategy that needs an amount ("Bid amount or bid constraints required", #2490487).
+        // Other strategies stay on the after-import list until their wording is confirmed.
+        campaignBid: c.budgetLevel === 'campaign' ? BID_LABEL('LOWEST_COST_WITHOUT_CAP') : '',
         campaignStart: usDate(c.startDate), campaignStop: usDate(c.endDate)
       };
       const sets = model.adSets.filter(a => a.campaignId === c.id);
@@ -2475,7 +2477,7 @@
           adSetStart: usDate(a.startDate || (c.budgetLevel === 'adset' ? c.startDate : '')), adSetStop: usDate(a.endDate || (c.budgetLevel === 'adset' ? c.endDate : '')),
           adSetDaily: c.budgetLevel === 'adset' && a.budget && a.budget.period === 'daily' ? money(a.budget.amount) : '',
           adSetLifetime: c.budgetLevel === 'adset' && a.budget && a.budget.period === 'lifetime' ? money(a.budget.amount) : '',
-          adSetBid: '', bidAmount: '',
+          adSetBid: c.budgetLevel === 'adset' ? BID_LABEL('LOWEST_COST_WITHOUT_CAP') : '', bidAmount: '',
           goal,
           pixel: needsPixel(c, a) && S.pixelId ? prefixed('tp', S.pixelId) : '',
           event: needsPixel(c, a) ? eventFor(c, a) : '',
