@@ -145,3 +145,24 @@ test('values left blank or as placeholders do not show up as unread lines', () =
   assert.equal(m.campaigns[0].bidStrategy, 'LOWEST_COST_WITHOUT_CAP');
   assert.ok(m.notes.some(n => /\[Client Page name\]/.test(n.msg)));
 });
+
+test('an ad named "ExistingPost" is an existing-post ad, however the doc lists it', () => {
+  const m = parseText([
+    '# Campaign: Post Boost',
+    'Objective: Engagement',
+    'Daily budget: $10',
+    'Format: Image',
+    '## US Broad',
+    'Location: US',
+    '| Ad name | Primary text | Headline |',
+    '|---|---|---|',
+    '| Video01_ExistingPost | | |',
+    '| Video02_ExistingPost | | |',
+    '| Image01_NewAd | Fresh bread every morning. | Baked Daily |'
+  ].join('\n'));
+  assert.deepEqual(m.ads.map(x => [x.name, x.existingPost, x.format]), [
+    ['Video01_ExistingPost', true, 'video'],
+    ['Video02_ExistingPost', true, 'video'],
+    ['Image01_NewAd', false, 'image']
+  ]);
+});

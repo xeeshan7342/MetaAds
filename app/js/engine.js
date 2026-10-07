@@ -2094,11 +2094,13 @@
           cta: pick('cta', n, sn, cn, acct) || '', url: pick('url', n, sn, cn) || '', displayLink: pick('displayLink', n, sn, cn, acct) || '',
           urlTags: pick('urlTags', n, sn, cn) || '', format: pick('format', n, sn, cn) || '', media: pick('media', n, sn) || '',
           imageHash: pick('imageHash', n) || '', videoId: pick('videoId', n) || '',
-          existingPost: !!pick('existingPost', n, sn, cn, acct), notes: n ? n.l.notes.slice() : []
+          // "Video01_ExistingPost": the name alone says the ad runs an existing post
+          existingPost: !!pick('existingPost', n, sn, cn, acct) || !!(n && EXISTING_POST.test(n.name || '')), notes: n ? n.l.notes.slice() : []
         });
         if (own.length) {
           own.forEach((an, k) => {
-            const fmt = pick('format', an, sn, cn) || parseFormat(an.name) || '';
+            // the ad's own name ("Video01", "Reel_Testimonial") says more than a format written for the whole ad set
+            const fmt = pick('format', an) || parseFormat(String(an.name || '').replace(/[_-]+/g, ' ')) || pick('format', sn, cn) || '';
             ads.push(Object.assign({ id: nid('a'), adSetId: as.id, name: an.name || 'Ad ' + (k + 1) }, adBase(an), {
               format: fmt,
               primary: an.l.primary[0] || P[k % (P.length || 1)] || '',
