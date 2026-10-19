@@ -209,3 +209,18 @@ test('existing-post ads with a post ID go in the file as Story ID, the way Ads M
   // a post ID needs the Page it was published on
   assert.ok(E.validate(m, settings({ pageId: '' }), '2026-10-07').errors.some(e => /Page ID/.test(e.msg)));
 });
+
+test('summary-table ad set names that no heading matches do not become extra ad sets', () => {
+  const m = parseText([
+    '| Campaign | Objective | Daily Budget | Ad Sets |',
+    '|---|---|---|---|',
+    '| Medical Wellness | Leads | $16 | Weight Management, Hormone & Anti-Aging |',
+    '# Campaign 1: Medical Wellness',
+    'Primary text: Shared campaign copy.',
+    '## WM | Interests | 30-55 | 20mi',
+    'Location: US',
+    '## HA | Interests | 35-55 | 20mi',
+    'Location: US'
+  ].join('\n'));
+  assert.deepEqual(m.adSets.map(a => a.name), ['WM | Interests | 30-55 | 20mi', 'HA | Interests | 35-55 | 20mi']);
+});

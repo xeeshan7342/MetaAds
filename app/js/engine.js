@@ -2017,6 +2017,9 @@
 
     camps.forEach(cn => {
       let sets = res.adSets.filter(a => a.parent === cn);
+      // a name from a summary table that no heading ever matched (the heading was renamed) is not an extra ad set
+      const unused = a => a.placeholder && !Object.keys(a.f).length && !Object.values(a.l).some(x => x.length) && !res.ads.some(x => x.parent === a);
+      if (sets.some(a => !unused(a))) sets = sets.filter(a => !unused(a));
       if (!sets.length) {
         const a = newNode('adset', 'Ad set 1', cn);
         a.explicit = true;
