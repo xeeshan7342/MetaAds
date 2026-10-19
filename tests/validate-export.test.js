@@ -72,7 +72,7 @@ test('export rows: one row per ad, parent columns repeated, Meta values', () => 
   assert.equal(r0[col('Optimization Goal')], 'OFFSITE_CONVERSIONS');
   assert.equal(r0[col('Optimized Conversion Tracking Pixels')], 'tp:778899001122334');
   assert.equal(r0[col('Optimized Event')], 'PURCHASE');
-  assert.equal(r0[col('Countries')], 'US');
+  assert.ok(col('Countries') < 0 || r0[col('Countries')] === '', 'a city ad set does not also target the whole country');
   assert.equal(r0[col('Cities')], 'Austin, TX');
   assert.equal(r0[col('Gender')], 'Women');
   assert.equal(r0[col('Publisher Platforms')], 'instagram');

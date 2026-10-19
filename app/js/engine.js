@@ -2471,7 +2471,8 @@
       sets.forEach(a => {
         const e = setEff(a, S);
         const goal = goalFor(c, a);
-        const countries = Array.from(new Set(e.locations.map(locCountry).filter(Boolean)));
+        // only countries targeted whole: "US" next to a city makes Ads Manager target the whole country
+        const countries = Array.from(new Set(e.locations.filter(l => l.type === 'country').map(locCountry).filter(Boolean)));
         const regions = e.locations.filter(l => l.type === 'region');
         const cities = e.locations.filter(l => l.type === 'city');
         const pl = a.placements && a.placements.mode === 'manual' ? a.placements : null;

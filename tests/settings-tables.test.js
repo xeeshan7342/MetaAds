@@ -224,3 +224,11 @@ test('summary-table ad set names that no heading matches do not become extra ad 
   ].join('\n'));
   assert.deepEqual(m.adSets.map(a => a.name), ['WM | Interests | 30-55 | 20mi', 'HA | Interests | 35-55 | 20mi']);
 });
+
+test('a city ad set does not also target its whole country', () => {
+  const m = parseText(['# Campaign: Local', 'Objective: Leads', 'Daily budget: $10', '## Near Spa', 'Locations: Bloomingdale, IL + 20 mile radius', 'Primary text: Hi.', 'Headline: Hi'].join('\n'));
+  const t = E.exportTable(m, settings());
+  const row = Object.fromEntries(t.headers.map((h, i) => [h, t.rows[0][i]]));
+  assert.equal(row.Cities, 'Bloomingdale, IL');
+  assert.equal(row.Countries, undefined);
+});
