@@ -232,3 +232,10 @@ test('a city ad set does not also target its whole country', () => {
   assert.equal(row.Cities, 'Bloomingdale, IL');
   assert.equal(row.Countries, undefined);
 });
+
+test('instant form ads carry the website in Link, or publishing fails with #2061015', () => {
+  const m = parseText(['# Campaign: Leads', 'Objective: Leads (Instant form)', 'Daily budget: $10', '## Main', 'Location: US', 'Primary text: Hi.', 'Headline: Hi'].join('\n'));
+  const t = E.exportTable(m, settings());
+  assert.equal(t.rows[0][t.headers.indexOf('Link')], 'https://www.example.com/');
+  assert.ok(E.validate(m, settings({ url: '' }), '2026-10-28').errors.some(e => /website URL/.test(e.msg)));
+});

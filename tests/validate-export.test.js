@@ -88,7 +88,7 @@ test('export rows: one row per ad, parent columns repeated, Meta values', () => 
   assert.equal(lead[col('Optimization Goal')], 'LEAD_GENERATION');
   assert.equal(lead[col('Destination Type')], 'ON_AD');
   assert.equal(lead[col('Lead Form ID')], '556677889900112');
-  assert.equal(lead[col('Link')], '', 'instant form ads carry no website link');
+  assert.equal(lead[col('Link')], 'https://www.example.com/', 'instant form ads carry the website link (#2061015 otherwise)');
   assert.equal(lead[col('Campaign Daily Budget')], '9.87');
 });
 

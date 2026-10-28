@@ -2219,7 +2219,8 @@
   const eventFor = (camp, as) => (as && as.event) || camp.event || (camp.objective === 'SALES' ? 'PURCHASE' : camp.objective === 'LEADS' ? 'LEAD' : '');
   // website conversions need the pixel; app events use the app instead
   const needsPixel = (camp, as) => ['OFFSITE_CONVERSIONS', 'VALUE'].includes(goalFor(camp, as)) && camp.conversionLocation !== 'app';
-  const needsUrl = (camp, as) => camp.conversionLocation === 'website' || (!camp.conversionLocation && ['TRAFFIC', 'LEADS', 'SALES'].includes(camp.objective));
+  // instant form ads too: an imported lead ad fails to publish with "#2061015 link field is required" when its creative has no link
+  const needsUrl = (camp, as) => ['website', 'form'].includes(camp.conversionLocation) || (!camp.conversionLocation && ['TRAFFIC', 'LEADS', 'SALES'].includes(camp.objective));
   // an ad goes in the import file unless it runs an existing post the doc gave no post ID for
   const inFile = ad => !ad.existingPost || !!postIdOf(ad.postId);
   // destination_type for the ad set, from the conversion location
